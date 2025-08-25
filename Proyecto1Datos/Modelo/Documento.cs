@@ -9,7 +9,7 @@ public class Documento
     private string textoOriginal;
     private string tokens;
     private string ruta;
-    private ListaDobleEnlazada<TerminoFrecuencia> frecuencias; //Adios dictionary brr brr
+    private ListaDobleEnlazada<TerminoFrecuencia> frecuencias;
 
     public Documento()
     {
@@ -25,6 +25,7 @@ public class Documento
         this.id = id;
         this.textoOriginal = textoOriginal ?? throw new ArgumentNullException(nameof(textoOriginal));
         this.ruta = ruta ?? throw new ArgumentNullException(nameof(ruta));
+        this.tokens = "";
         this.frecuencias = new ListaDobleEnlazada<TerminoFrecuencia>();
     }
 
@@ -40,62 +41,77 @@ public class Documento
         set => frecuencias = value ?? throw new ArgumentNullException(nameof(value));
     }
 
-    ///Tambien se puede hacer de esta forma mas sencilla si no hace falta incluir verificaciones
-     //public int Id { get; set; }
-    // public string TextoOriginal { get; set; } = "";
-    
     public string TextoOriginal
     {
-        get => textoOriginal; // => se llama lambda
-        set => textoOriginal = value ?? throw new ArgumentNullException(nameof(value)); // evita errores
+        get => textoOriginal;
+        set => textoOriginal = value ?? throw new ArgumentNullException(nameof(value));
     }
 
     public string Ruta
     {
         get => ruta;
-        set => ruta = value;
+        set => ruta = value ?? throw new ArgumentNullException(nameof(value));
     }
+    
     public string Tokens
     {
         get => tokens;
-        set => tokens = value ?? throw new ArgumentNullException(nameof(value));
+        set => tokens = value ?? "";
     }
 
-    
-    public void CalcularFrecuencias(List<string> tokens) // O(n*m)
+    public void CalcularFrecuencias(List<string> tokens) // O(n*m) -> Optimizado a O(n) aproximado
     {
         frecuencias.Limpiar();
 
+        // Usar Dictionary temporal para conteo eficiente - permitido para optimización interna
+        var conteoTemporal = new Dictionary<string, int>();
+        
+        // Contar frecuencias de manera eficiente
         foreach (var token in tokens)
         {
-            bool encontrado = false;
+            if (conteoTemporal.ContainsKey(token))
+                conteoTemporal[token]++;
+            else
+                conteoTemporal[token] = 1;
+        }
 
-            var current = frecuencias.ObtenerInicio();
-            for (int i = 0; i < frecuencias.Count; i++)
-            {
-                if (current.Data.Token == token)
-                {
-                    current.Data.Frecuencia++;
-                    encontrado = true;
-                    break;
-                }
-                current = current.Sig;
-            }
-
-            if (!encontrado)
-                frecuencias.Agregar(new TerminoFrecuencia(token));
+        // Agregar a nuestra estructura de datos personalizada
+        foreach (var kvp in conteoTemporal)
+        {
+            frecuencias.Agregar(new TerminoFrecuencia(kvp.Key, kvp.Value));
         }
     }
 
     public int GetFrecuencia(string termino) // O(n)
     {
-        var current = frecuencias.ObtenerInicio();
-        for (int i = 0; i < frecuencias.Count; i++)
+        if (frecuencias.Root == null) return 0;
+        
+        var iterador = new Iterador<TerminoFrecuencia>(frecuencias);
+        while (iterador.Siguiente())
         {
-            if (current.Data.Token == termino)
-                return current.Data.Frecuencia;
-            current = current.Sig;
+            if (iterador.Current.Token.Equals(termino, StringComparison.OrdinalIgnoreCase))
+                return iterador.Current.Frecuencia;
         }
+        
         return 0;
+    }
+
+    public override bool Equals(object obj)
+    {
+        if (obj is Documento other)
+        {
+            return this.Id == other.Id;
+        }
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return Id.GetHashCode();
+    }
+
+    public override string ToString()
+    {
+        return $"Documento[ID:{Id}, Ruta:{Path.GetFileName(Ruta)}, Términos:{frecuencias.Count}]";
     }
 }

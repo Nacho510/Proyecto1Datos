@@ -12,6 +12,8 @@ namespace PruebaRider.Estructura.Nodo
         public Iterador(ListaDobleEnlazada<T> lista)
         {
             this.lista = lista;
+            this.isFirstIteration = true;
+            this.currentPosition = -1;
         }
 
         public T Current { get; private set; }
@@ -32,7 +34,7 @@ namespace PruebaRider.Estructura.Nodo
             currentPosition++;
             if (currentPosition >= lista.Count)
             {
-                return false;
+                return false; // Ya recorrimos todos los elementos
             }
 
             currentNode = currentNode.Sig;
@@ -48,5 +50,10 @@ namespace PruebaRider.Estructura.Nodo
             currentPosition = -1;
         }
         
+        // Método para reiniciar el iterador
+        public void Reiniciar()
+        {
+            Limpiar();
+        }
     }
 }

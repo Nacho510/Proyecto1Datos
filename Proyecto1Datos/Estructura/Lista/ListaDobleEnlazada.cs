@@ -1,5 +1,4 @@
-﻿
-namespace PruebaRider.Estructura.Nodo
+﻿namespace PruebaRider.Estructura.Nodo
 {
     public class ListaDobleEnlazada<T>
     {
@@ -19,20 +18,23 @@ namespace PruebaRider.Estructura.Nodo
             if (root == null)
             {
                 root = newNode;
+                // El nodo ya se apunta a sí mismo en el constructor
             }
             else
             {
-                var last = root.Ant;
-
-                last.Sig = newNode;
+                var last = root.Ant; // Último nodo (anterior al root)
+                
+                // Conectar el nuevo nodo
                 newNode.Ant = last;
                 newNode.Sig = root;
+                
+                // Actualizar conexiones existentes
+                last.Sig = newNode;
                 root.Ant = newNode;
             }
 
             count++;
         }
-
 
         public bool Eliminar(T item) // O(n)
         {
@@ -87,6 +89,7 @@ namespace PruebaRider.Estructura.Nodo
             root = null;
             count = 0;
         }
+        
         public void CopiarA(T[] array, int arrayIndex)
         {
             if (array == null)
@@ -97,6 +100,8 @@ namespace PruebaRider.Estructura.Nodo
 
             if (array.Length - arrayIndex < count)
                 throw new ArgumentException("El array destino no tiene suficiente espacio.");
+
+            if (root == null) return;
 
             var current = root;
             for (int i = 0; i < count; i++)
@@ -110,6 +115,7 @@ namespace PruebaRider.Estructura.Nodo
         {
             return root;
         }
+        
         public override string ToString()
         {
             if (root == null)
@@ -132,13 +138,13 @@ namespace PruebaRider.Estructura.Nodo
             return resultado;
         }
         
-        public void OrdenarDescendente(Func<T, double> criterio)
+        public void OrdenarDescendente(Func<T, double> criterio) // O(n^2)
         {
             if (count < 2) return; // No necesita ordenarse
 
             bool huboIntercambio;
 
-            // Usaremos un Bubble Sort simple O(n^2)
+            // Bubble Sort - O(n^2)
             do
             {
                 huboIntercambio = false;

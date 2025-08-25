@@ -1,0 +1,15 @@
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\bin\Debug\net9.0\Proyecto1Datos.exe
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\bin\Debug\net9.0\Proyecto1Datos.deps.json
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\bin\Debug\net9.0\Proyecto1Datos.runtimeconfig.json
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\bin\Debug\net9.0\Proyecto1Datos.dll
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\bin\Debug\net9.0\Proyecto1Datos.pdb
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.AssemblyInfoInputs.cache
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.AssemblyInfo.cs
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.csproj.CoreCompileInputs.cache
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.sourcelink.json
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.dll
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\refint\Proyecto1Datos.dll
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.pdb
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\Proyecto1Datos.genruntimeconfig.cache
+C:\Users\ignab\RiderProjects\Proyecto1Datos\Proyecto1Datos\obj\Debug\net9.0\ref\Proyecto1Datos.dll

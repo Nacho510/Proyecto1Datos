@@ -3,7 +3,6 @@ using PruebaRider.Estructura.Nodo;
 using PruebaRider.Strategy;
 using PruebaRider.Persistencia;
 
-
 namespace PruebaRider.Servicios
 {
     public class IndiceInvertido
@@ -31,7 +30,10 @@ namespace PruebaRider.Servicios
             await CargarDirectorio(rutaDirectorio);
             CalcularIdfGlobal();
             
+            // CRÍTICO: Inicializar el buscador vectorial
             buscadorVectorial = new BuscadorVectorial(this);
+            
+            Console.WriteLine($"Índice creado exitosamente con {documentos.Count} documentos y {indice.Count} términos únicos.");
         }
 
         public async Task ActualizarIndice(string rutaDirectorio)
@@ -44,7 +46,12 @@ namespace PruebaRider.Servicios
                 archivosExistentes.Agregar(iteradorDocs.Current.Ruta);
             }
             
+            if (!Directory.Exists(rutaDirectorio))
+                throw new DirectoryNotFoundException($"El directorio {rutaDirectorio} no existe");
+                
             var archivos = Directory.GetFiles(rutaDirectorio, "*.txt");
+            int archivosNuevos = 0;
+            
             foreach (var archivo in archivos)
             {
                 bool existe = false;
@@ -61,16 +68,35 @@ namespace PruebaRider.Servicios
                 if (!existe)
                 {
                     await AgregarDocumentoDesdeArchivo(archivo);
+                    archivosNuevos++;
                 }
             }
             
-            CalcularIdfGlobal();
-            
-            buscadorVectorial = new BuscadorVectorial(this);
+            if (archivosNuevos > 0)
+            {
+                CalcularIdfGlobal();
+                buscadorVectorial = new BuscadorVectorial(this);
+                Console.WriteLine($"Se agregaron {archivosNuevos} documentos nuevos al índice.");
+            }
+            else
+            {
+                Console.WriteLine("No se encontraron documentos nuevos para agregar.");
+            }
         }
 
         public void AplicarLeyZipf(int percentil, bool eliminarFrecuentes = true)
         {
+            if (percentil <= 0 || percentil >= 100)
+                throw new ArgumentException("El percentil debe estar entre 1 y 99");
+                
+            if (indice.Count == 0)
+            {
+                Console.WriteLine("No hay términos en el índice para aplicar Ley de Zipf");
+                return;
+            }
+            
+            int terminosAntes = indice.Count;
+            
             var contexto = new ContextoZipf();
             
             if (eliminarFrecuentes)
@@ -85,6 +111,11 @@ namespace PruebaRider.Servicios
             contexto.AplicarLeyZipf(percentil);
             
             CalcularIdfGlobal();
+            
+            // Reinicializar buscador vectorial
+            buscadorVectorial = new BuscadorVectorial(this);
+            
+            Console.WriteLine($"Ley de Zipf aplicada. Términos antes: {terminosAntes}, después: {indice.Count}");
         }
 
         public void GuardarEnArchivoBinario(string rutaArchivo)
@@ -99,6 +130,7 @@ namespace PruebaRider.Servicios
             indice = indiceNuevo;
             documentos = documentosNuevos;
             
+            // Recalcular contador de documentos
             contadorDocumentos = 0;
             var iterador = new Iterador<Documento>(documentos);
             while (iterador.Siguiente())
@@ -120,7 +152,16 @@ namespace PruebaRider.Servicios
 
         public async Task CargarDirectorio(string rutaDirectorio)
         {
+            if (!Directory.Exists(rutaDirectorio))
+                throw new DirectoryNotFoundException($"El directorio {rutaDirectorio} no existe");
+                
             var archivos = Directory.GetFiles(rutaDirectorio, "*.txt");
+            
+            if (archivos.Length == 0)
+                throw new InvalidOperationException("No se encontraron archivos .txt en el directorio");
+            
+            Console.WriteLine($"Cargando {archivos.Length} archivos...");
+            
             foreach (var archivo in archivos)
             {
                 await AgregarDocumentoDesdeArchivo(archivo);
@@ -129,86 +170,113 @@ namespace PruebaRider.Servicios
 
         public async Task AgregarDocumentoDesdeArchivo(string rutaArchivo)
         {
-            string contenido = await File.ReadAllTextAsync(rutaArchivo);
-            var tokens = procesador.ProcesarTextoCompleto(contenido);
-            var documento = new Documento(++contadorDocumentos, contenido, rutaArchivo);
-            documento.Tokens = string.Join(" ", tokens);
-            documento.CalcularFrecuencias(tokens);
-            documentos.Agregar(documento);
-
-            foreach (var token in tokens.Distinct())
-            {
-                Termino terminoExistente = BuscarTermino(token);
+            if (!File.Exists(rutaArchivo))
+                throw new FileNotFoundException($"El archivo {rutaArchivo} no existe");
                 
-                if (terminoExistente == null)
+            try
+            {
+                string contenido = await File.ReadAllTextAsync(rutaArchivo);
+                
+                if (string.IsNullOrWhiteSpace(contenido))
                 {
-                    var nuevoTermino = new Termino(token);
-                    nuevoTermino.AgregarDocumento(documento);
-                    indice.Agregar(nuevoTermino);
+                    Console.WriteLine($"Advertencia: El archivo {rutaArchivo} está vacío");
+                    return;
                 }
-                else
+                
+                var tokens = procesador.ProcesarTextoCompleto(contenido);
+                
+                if (tokens.Count == 0)
                 {
-                    terminoExistente.AgregarDocumento(documento);
+                    Console.WriteLine($"Advertencia: No se encontraron tokens válidos en {rutaArchivo}");
+                    return;
                 }
+                
+                var documento = new Documento(++contadorDocumentos, contenido, rutaArchivo);
+                documento.Tokens = string.Join(" ", tokens);
+                documento.CalcularFrecuencias(tokens);
+                documentos.Agregar(documento);
+
+                // Procesar solo tokens únicos para evitar duplicados
+                var tokensUnicos = tokens.Distinct().ToList();
+                
+                foreach (var token in tokensUnicos)
+                {
+                    Termino terminoExistente = BuscarTermino(token);
+                    
+                    if (terminoExistente == null)
+                    {
+                        var nuevoTermino = new Termino(token);
+                        nuevoTermino.AgregarDocumento(documento);
+                        indice.Agregar(nuevoTermino);
+                    }
+                    else
+                    {
+                        terminoExistente.AgregarDocumento(documento);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error procesando archivo {rutaArchivo}: {ex.Message}");
+                throw;
             }
         }
 
-        private Termino BuscarTermino(string token)
+        private Termino BuscarTermino(string token) // O(n)
         {
             if (indice.Root == null) return null;
             
-            var nodoActual = indice.Root;
-            do
+            var iterador = new Iterador<Termino>(indice);
+            while (iterador.Siguiente())
             {
-                if (nodoActual.Data.Palabra.Equals(token, StringComparison.OrdinalIgnoreCase))
+                if (iterador.Current.Palabra.Equals(token, StringComparison.OrdinalIgnoreCase))
                 {
-                    return nodoActual.Data;
+                    return iterador.Current;
                 }
-                nodoActual = nodoActual.Sig;
-            } while (nodoActual != indice.Root);
+            }
             
             return null;
         }
 
-        public void CalcularIdfGlobal()
+        public void CalcularIdfGlobal() // O(t) donde t = número de términos
         {
             if (indice.Root == null) return;
             
-            var nodoActual = indice.Root;
-            do
+            int totalDocumentos = GetCantidadDocumentos();
+            if (totalDocumentos == 0) return;
+            
+            var iterador = new Iterador<Termino>(indice);
+            while (iterador.Siguiente())
             {
-                nodoActual.Data.CalcularIdf(GetCantidadDocumentos());
-                nodoActual = nodoActual.Sig;
-            } while (nodoActual != indice.Root);
+                iterador.Current.CalcularIdf(totalDocumentos);
+            }
         }
 
-        public ListaDobleEnlazada<ResultadoBusqueda> Buscar(string consulta)
+        public ListaDobleEnlazada<ResultadoBusqueda> Buscar(string consulta) // O(d*t) donde d=docs, t=términos
         {
             var tokensConsulta = procesador.ProcesarTextoCompleto(consulta);
             var resultados = new ListaDobleEnlazada<ResultadoBusqueda>();
             
-            if (documentos.Root == null) return resultados;
+            if (documentos.Root == null || tokensConsulta.Count == 0) return resultados;
             
-            var nodoDoc = documentos.Root;
-            do
+            var iteradorDocs = new Iterador<Documento>(documentos);
+            while (iteradorDocs.Siguiente())
             {
-                var doc = nodoDoc.Data;
-                double resultado = 0;
+                var doc = iteradorDocs.Current;
+                double puntuacion = 0;
                 
                 foreach (var token in tokensConsulta)
                 {
                     Termino termino = BuscarTermino(token);
                     if (termino != null)
                     {
-                        resultado += termino.GetTfIdf(doc);
+                        puntuacion += termino.GetTfIdf(doc);
                     }
                 }
                 
-                if (resultado > 0)
-                    resultados.Agregar(new ResultadoBusqueda(doc, resultado));
-                
-                nodoDoc = nodoDoc.Sig;
-            } while (nodoDoc != documentos.Root);
+                if (puntuacion > 0)
+                    resultados.Agregar(new ResultadoBusqueda(doc, puntuacion));
+            }
             
             resultados.OrdenarDescendente(r => r.Score);
             return resultados;
@@ -223,7 +291,7 @@ namespace PruebaRider.Servicios
 
         public int GetCantidadDocumentos()
         {
-            return contadorDocumentos;
+            return documentos.Count;
         }
         
         public ListaDobleEnlazada<Documento> GetDocumentos()
@@ -246,7 +314,7 @@ namespace PruebaRider.Servicios
             };
         }
 
-        private double CalcularPromedioTerminosPorDocumento()
+        private double CalcularPromedioTerminosPorDocumento() // O(d)
         {
             if (documentos.Count == 0) return 0;
             
@@ -291,8 +359,7 @@ namespace PruebaRider.Servicios
 
         public override string ToString()
         {
-            return
-                $"Documentos: {CantidadDocumentos}, Términos: {CantidadTerminos}, Promedio términos/doc: {PromedioTerminosPorDocumento:F2}";
+            return $"Documentos: {CantidadDocumentos}, Términos: {CantidadTerminos}, Promedio términos/doc: {PromedioTerminosPorDocumento:F2}";
         }
     }
 }
