@@ -202,8 +202,7 @@
             
             estaOrdenada = true;
         }
-
-       
+        
         public void OrdenarAscendente(Func<T, double> criterio)
         {
             if (count < 2) 
