@@ -5,17 +5,13 @@ using PruebaRider.Persistencia;
 
 namespace PruebaRider.Servicios
 {
-    /// <summary>
-    /// Índice Invertido simplificado - Solo funciones esenciales
-    /// Mantiene búsqueda binaria O(log n) con código directo
-    /// </summary>
     public class IndiceInvertido
     {
         private ListaDobleEnlazada<Termino> indice;
         private ListaDobleEnlazada<Documento> documentos;
         private ProcesadorDeTexto procesador;
         private SerializadorBinario serializador;
-        private BuscadorVectorial buscadorVectorial;
+        private BuscadorVectorial buscadorVectorial; // Usa Vector propio internamente
         private int contadorDocumentos;
 
         public IndiceInvertido()
@@ -32,16 +28,18 @@ namespace PruebaRider.Servicios
         /// </summary>
         public async Task CrearDesdeRuta(string rutaDirectorio)
         {
-            Console.WriteLine("🚀 Creando índice...");
+            Console.WriteLine("🚀 Creando índice invertido con soporte vectorial...");
             
             Limpiar();
             await CargarDirectorio(rutaDirectorio);
             OrdenarIndice();
             CalcularIdfGlobal();
             
+            // INICIALIZAR BUSCADOR VECTORIAL que usa tu clase Vector internamente
             buscadorVectorial = new BuscadorVectorial(this);
             
             Console.WriteLine($"✅ Índice creado: {documentos.Count} documentos, {indice.Count} términos");
+            Console.WriteLine("🎯 Buscador vectorial inicializado con clase Vector personalizada");
         }
 
         /// <summary>
@@ -57,6 +55,8 @@ namespace PruebaRider.Servicios
             if (archivos.Length == 0)
                 throw new InvalidOperationException("No se encontraron archivos .txt");
                 
+            Console.WriteLine($"📄 Procesando {archivos.Length} archivo(s)...");
+            
             foreach (var archivo in archivos)
             {
                 await AgregarDocumento(archivo);
@@ -108,19 +108,19 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Buscar término en el índice
+        /// Buscar término en el índice - Optimizado con búsqueda binaria
         /// </summary>
         public Termino BuscarTermino(string palabra)
         {
             if (indice.EstaOrdenada && indice.Count > 10)
             {
-                // Búsqueda binaria O(log n)
+                // Búsqueda binaria O(log n) para índices grandes
                 var dummy = new Termino(palabra);
                 return indice.BuscarBinario(dummy, CompararTerminos);
             }
             else
             {
-                // Búsqueda lineal O(n)
+                // Búsqueda lineal O(n) para índices pequeños
                 var iterador = new Iterador<Termino>(indice);
                 while (iterador.Siguiente())
                 {
@@ -132,7 +132,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Búsqueda de documentos con TF-IDF
+        /// Búsqueda TF-IDF tradicional usando ListaDobleEnlazada
         /// </summary>
         public ListaDobleEnlazada<ResultadoBusqueda> Buscar(string consulta)
         {
@@ -141,7 +141,7 @@ namespace PruebaRider.Servicios
             
             if (tokensConsulta.Count == 0) return resultados;
             
-            // Buscar términos de la consulta
+            // Buscar términos de la consulta usando estructuras propias
             var terminosConsulta = new ListaDobleEnlazada<Termino>();
             var tokensUnicos = EliminarDuplicados(tokensConsulta);
             
@@ -154,7 +154,7 @@ namespace PruebaRider.Servicios
             
             if (terminosConsulta.Count == 0) return resultados;
             
-            // Calcular puntuaciones para cada documento
+            // Calcular puntuaciones TF-IDF para cada documento
             var iteradorDocs = new Iterador<Documento>(documentos);
             while (iteradorDocs.Siguiente())
             {
@@ -171,24 +171,34 @@ namespace PruebaRider.Servicios
                     resultados.Agregar(new ResultadoBusqueda(doc, puntuacion));
             }
             
-            // Ordenar por puntuación
+            // Ordenar por puntuación usando método optimizado
             resultados.OrdenarDescendente(r => r.Score);
             return resultados;
         }
 
         /// <summary>
-        /// Búsqueda vectorial con similitud coseno
+        /// CORE: Búsqueda vectorial usando clase Vector personalizada
+        /// AQUÍ ES DONDE SE USA TU CLASE VECTOR PROPIA PARA SIMILITUD COSENO
         /// </summary>
-        public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
+        public ListaDobleEnlazada<ResultadoBusquedaVectorrial> BuscarConSimilitudCoseno(string consulta)
         {
             if (buscadorVectorial == null)
+            {
+                Console.WriteLine("🎯 Inicializando buscador vectorial...");
                 buscadorVectorial = new BuscadorVectorial(this);
+            }
             
+            Console.WriteLine($"🔍 Ejecutando búsqueda vectorial con clase Vector personalizada...");
+            
+            // EL BUSCADOR VECTORIAL USA INTERNAMENTE TU CLASE Vector PARA:
+            // - Crear vectores de consulta y documentos
+            // - Calcular similitud coseno con operador * sobrecargado
+            // - Usar métodos Magnitud() y SimilitudCoseno()
             return buscadorVectorial.BuscarConSimilitudCoseno(consulta);
         }
 
         /// <summary>
-        /// Aplicar Ley de Zipf
+        /// Aplicar Ley de Zipf con reinicialización del buscador vectorial
         /// </summary>
         public void AplicarLeyZipf(int percentil, bool eliminarFrecuentes = true)
         {
@@ -204,9 +214,18 @@ namespace PruebaRider.Servicios
                 
             contexto.AplicarLeyZipf(percentil);
             
+            // Reordenar y recalcular después de Zipf
             OrdenarIndice();
             CalcularIdfGlobal();
+            
+            // REINICIALIZAR BUSCADOR VECTORIAL con nuevo vocabulario
+            if (buscadorVectorial != null)
+            {
+                buscadorVectorial.InvalidarCache();
+            }
             buscadorVectorial = new BuscadorVectorial(this);
+            
+            Console.WriteLine("⚡ Ley de Zipf aplicada y buscador vectorial actualizado");
         }
 
         /// <summary>
@@ -214,11 +233,12 @@ namespace PruebaRider.Servicios
         /// </summary>
         public async Task ActualizarIndice(string rutaDirectorio)
         {
-            var archivosExistentes = new List<string>();
+            // Obtener archivos existentes usando estructura propia
+            var archivosExistentes = new ListaDobleEnlazada<string>();
             var iterador = new Iterador<Documento>(documentos);
             while (iterador.Siguiente())
             {
-                archivosExistentes.Add(iterador.Current.Ruta);
+                archivosExistentes.Agregar(iterador.Current.Ruta);
             }
             
             var archivos = Directory.GetFiles(rutaDirectorio, "*.txt");
@@ -226,7 +246,19 @@ namespace PruebaRider.Servicios
             
             foreach (var archivo in archivos)
             {
-                if (!archivosExistentes.Contains(archivo))
+                // Verificar si ya existe usando estructura propia
+                bool yaExiste = false;
+                var iteradorExistentes = new Iterador<string>(archivosExistentes);
+                while (iteradorExistentes.Siguiente())
+                {
+                    if (iteradorExistentes.Current.Equals(archivo))
+                    {
+                        yaExiste = true;
+                        break;
+                    }
+                }
+                
+                if (!yaExiste)
                 {
                     await AgregarDocumento(archivo);
                     agregados++;
@@ -237,8 +269,15 @@ namespace PruebaRider.Servicios
             {
                 OrdenarIndice();
                 CalcularIdfGlobal();
+                
+                // REINICIALIZAR BUSCADOR VECTORIAL después de actualización
+                if (buscadorVectorial != null)
+                {
+                    buscadorVectorial.InvalidarCache();
+                }
                 buscadorVectorial = new BuscadorVectorial(this);
-                Console.WriteLine($"✅ Agregados {agregados} documentos nuevos");
+                
+                Console.WriteLine($"✅ Agregados {agregados} documentos - Buscador vectorial actualizado");
             }
         }
 
@@ -247,7 +286,17 @@ namespace PruebaRider.Servicios
         /// </summary>
         public void GuardarEnArchivoBinario(string rutaArchivo)
         {
-            serializador.GuardarIndice(rutaArchivo, indice, documentos);
+            try
+            {
+                Console.WriteLine("💾 Guardando índice con soporte vectorial...");
+                serializador.GuardarIndice(rutaArchivo, indice, documentos);
+                Console.WriteLine("✅ Índice guardado exitosamente");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error guardando índice: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -255,29 +304,54 @@ namespace PruebaRider.Servicios
         /// </summary>
         public void CargarDesdeArchivoBinario(string rutaArchivo)
         {
-            var (indiceNuevo, documentosNuevos) = serializador.CargarIndice(rutaArchivo);
-            
-            indice = indiceNuevo;
-            documentos = documentosNuevos;
-            
-            // Recalcular contador
-            contadorDocumentos = 0;
-            var iterador = new Iterador<Documento>(documentos);
-            while (iterador.Siguiente())
+            try
             {
-                if (iterador.Current.Id > contadorDocumentos)
-                    contadorDocumentos = iterador.Current.Id;
+                Console.WriteLine("📂 Cargando índice...");
+                var (indiceNuevo, documentosNuevos) = serializador.CargarIndice(rutaArchivo);
+                
+                indice = indiceNuevo;
+                documentos = documentosNuevos;
+                
+                // Recalcular contador de documentos
+                contadorDocumentos = 0;
+                var iterador = new Iterador<Documento>(documentos);
+                while (iterador.Siguiente())
+                {
+                    if (iterador.Current.Id > contadorDocumentos)
+                        contadorDocumentos = iterador.Current.Id;
+                }
+                
+                OrdenarIndice();
+                
+                // INICIALIZAR BUSCADOR VECTORIAL después de cargar
+                buscadorVectorial = new BuscadorVectorial(this);
+                
+                Console.WriteLine("✅ Índice cargado y buscador vectorial inicializado");
             }
-            
-            OrdenarIndice();
-            buscadorVectorial = new BuscadorVectorial(this);
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error cargando índice: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>
-        /// Ordenar índice alfabéticamente para búsqueda binaria
+        /// NUEVO: Análisis vectorial de una consulta para debugging
+        /// </summary>
+        public AnalisisVectorial AnalizarConsultaVectorial(string consulta)
+        {
+            if (buscadorVectorial == null)
+                buscadorVectorial = new BuscadorVectorial(this);
+                
+            return buscadorVectorial.AnalizarConsulta(consulta);
+        }
+
+        /// <summary>
+        /// Ordenar índice alfabéticamente para búsqueda binaria optimizada
         /// </summary>
         private void OrdenarIndice()
         {
+            Console.WriteLine("🔤 Ordenando índice para búsqueda binaria...");
             indice.OrdenarCon(CompararTerminos);
         }
 
@@ -289,6 +363,8 @@ namespace PruebaRider.Servicios
             int totalDocumentos = documentos.Count;
             if (totalDocumentos == 0) return;
             
+            Console.WriteLine($"📊 Calculando IDF para {indice.Count} términos...");
+            
             var iterador = new Iterador<Termino>(indice);
             while (iterador.Siguiente())
             {
@@ -297,7 +373,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Eliminar duplicados de lista de tokens
+        /// Eliminar duplicados usando solo estructuras propias
         /// </summary>
         private List<string> EliminarDuplicados(List<string> tokens)
         {
@@ -332,19 +408,24 @@ namespace PruebaRider.Servicios
             return string.Compare(t1.Palabra, t2.Palabra, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Limpiar índice y todos los componentes
+        /// </summary>
         public void Limpiar()
         {
             indice.Limpiar();
             documentos.Limpiar();
             contadorDocumentos = 0;
+            buscadorVectorial = null; // Liberar referencia
         }
 
+        // Getters para acceso controlado
         public int GetCantidadDocumentos() => documentos.Count;
         public ListaDobleEnlazada<Documento> GetDocumentos() => documentos;
         public ListaDobleEnlazada<Termino> GetIndice() => indice;
 
         /// <summary>
-        /// Estadísticas básicas del índice
+        /// Estadísticas mejoradas del índice
         /// </summary>
         public EstadisticasIndice ObtenerEstadisticas()
         {
@@ -352,24 +433,27 @@ namespace PruebaRider.Servicios
             {
                 CantidadDocumentos = documentos.Count,
                 CantidadTerminos = indice.Count,
-                IndiceOrdenado = indice.EstaOrdenada
+                IndiceOrdenado = indice.EstaOrdenada,
+                BuscadorVectorialActivo = buscadorVectorial != null
             };
         }
     }
 
     /// <summary>
-    /// Estadísticas básicas del índice
+    /// MEJORADO: Estadísticas del índice con información vectorial
     /// </summary>
     public class EstadisticasIndice
     {
         public int CantidadDocumentos { get; set; }
         public int CantidadTerminos { get; set; }
         public bool IndiceOrdenado { get; set; }
+        public bool BuscadorVectorialActivo { get; set; }
 
         public override string ToString()
         {
             return $"📊 Documentos: {CantidadDocumentos}, Términos: {CantidadTerminos}, " +
-                   $"Ordenado: {(IndiceOrdenado ? "Sí" : "No")}";
+                   $"Ordenado: {(IndiceOrdenado ? "Sí" : "No")}, " +
+                   $"🎯 Vector: {(BuscadorVectorialActivo ? "Activo" : "Inactivo")}";
         }
     }
 }

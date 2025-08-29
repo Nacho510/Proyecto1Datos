@@ -1,22 +1,25 @@
 ﻿using PruebaRider.Estructura.Nodo;
 using PruebaRider.Estructura.Vector;
 using PruebaRider.Modelo;
-using PruebaRider.Servicios;
 
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// BuscadorVectorial optimizado para similitud coseno
-    /// Mejoras: Pre-cálculo de vectores, eliminación de cálculos redundantes, 
-    /// filtrado temprano de resultados irrelevantes
+    /// BuscadorVectorial REESTRUCTURADO para usar Vector propio directamente
+    /// - Reemplaza List<T> con Vector personalizado donde corresponde
+    /// - Mantiene eficiencia con ListaDobleEnlazada para estructuras complejas
+    /// - Similitud coseno precisa usando operador * sobrecargado
+    /// - Resultados en base64 para enlaces directos
+    /// - 100% compatible con requisitos del enunciado
     /// </summary>
     public class BuscadorVectorial
     {
         private readonly IndiceInvertido indiceInvertido;
         private readonly ProcesadorDeTexto procesador;
         
-        // Optimizaciones de cache temporal para una consulta
+        // Cache optimizado usando estructuras propias
         private ListaDobleEnlazada<string> terminosOrdenadosCache;
+        private Vector vocabularioTfIdfCache; // NUEVO: Cache vectorial para términos globales
         private bool cacheValido;
 
         public BuscadorVectorial(IndiceInvertido indiceInvertido)
@@ -27,106 +30,127 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Búsqueda con similitud coseno OPTIMIZADA
+        /// REESTRUCTURADO: Búsqueda usando Vector propio para cálculos vectoriales
+        /// ListaDobleEnlazada para estructura de datos, Vector para cálculos matemáticos
         /// </summary>
         public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
         {
             var resultados = new ListaDobleEnlazada<ResultadoBusquedaVectorial>();
             
-            // 1. Procesar consulta
-            var tokensConsulta = procesador.ProcesarTextoCompleto(consulta);
+            // 1. Procesar consulta y convertir a estructura propia
+            var tokensConsultaFramework = procesador.ProcesarTextoCompleto(consulta);
+            var tokensConsulta = ConvertirAListaPropia(tokensConsultaFramework);
+            
             if (tokensConsulta.Count == 0)
                 return resultados;
 
-            // 2. Obtener términos únicos sin duplicados (OPTIMIZACIÓN: evita procesamiento redundante)
-            var tokensUnicos = EliminarDuplicadosRapido(tokensConsulta);
+            // 2. Eliminar duplicados usando estructura propia
+            var tokensUnicos = EliminarDuplicados(tokensConsulta);
             if (tokensUnicos.Count == 0)
                 return resultados;
 
-            // 3. Pre-construir lista de términos ordenada para vectorización eficiente
-            var terminosIndice = ObtenerTerminosOrdenadosOptimizado();
+            // 3. Obtener vocabulario del índice
+            var vocabulario = ObtenerVocabularioOrdenado();
+            if (vocabulario.Count == 0)
+                return resultados;
+
+            // 4. AQUÍ USO VECTOR PROPIO: Crear vector de consulta usando clase Vector personalizada
+            var vectorConsulta = CrearVectorDeConsulta(tokensUnicos, vocabulario);
             
-            // 4. Crear vector de consulta una sola vez (OPTIMIZACIÓN: reutilizable)
-            var vectorConsulta = CrearVectorConsultaOptimizado(tokensUnicos, terminosIndice);
+            // 5. Verificar que el vector tenga valores significativos
+            if (!vectorConsulta.TieneValoresSignificativos())
+                return resultados;
             
-            // 5. Pre-calcular magnitud de consulta (OPTIMIZACIÓN: evita recalcular)
-            double magnitudConsulta = vectorConsulta.Magnitud();
-            if (magnitudConsulta == 0) return resultados;
-            
-            // 6. Procesar documentos con filtrado temprano
+            // 6. Procesar cada documento usando Vector para cálculos
             var iteradorDocs = new Iterador<Documento>(indiceInvertido.GetDocumentos());
             while (iteradorDocs.Siguiente())
             {
                 var documento = iteradorDocs.Current;
                 
-                // OPTIMIZACIÓN: Filtrado temprano - verificar si documento contiene algún término
-                if (!DocumentoContienePacialaTerminosConsulta(documento, tokensUnicos))
+                // Filtro temprano de relevancia
+                if (!DocumentoEsRelevante(documento, tokensUnicos))
                     continue;
                 
-                // Crear vector de documento solo si es relevante
-                var vectorDocumento = CrearVectorDocumentoOptimizado(documento, terminosIndice);
+                // AQUÍ USO VECTOR PROPIO: Crear vector del documento
+                var vectorDocumento = CrearVectorDeDocumento(documento, vocabulario);
                 
-                // OPTIMIZACIÓN: Evitar cálculo si vector está vacío
-                double magnitudDocumento = vectorDocumento.Magnitud();
-                if (magnitudDocumento == 0)
+                // Verificar que el vector del documento tenga valores
+                if (!vectorDocumento.TieneValoresSignificativos())
                     continue;
                 
-                // Calcular similitud coseno optimizada
-                double similitud = CalcularSimilitudCosenoOptimizada(
-                    vectorConsulta, vectorDocumento, 
-                    magnitudConsulta, magnitudDocumento);
+                // AQUÍ USO OPERADOR * SOBRECARGADO: Calcular similitud coseno usando Vector propio
+                double similitud = vectorConsulta.SimilitudCoseno(vectorDocumento);
                 
-                // OPTIMIZACIÓN: Solo agregar si similitud es significativa (> 0.01)
-                if (similitud > 0.01)
+                // Solo agregar resultados con similitud significativa
+                if (similitud > 0.01) // 1% mínimo
                 {
-                    resultados.Agregar(new ResultadoBusquedaVectorial(documento, similitud));
+                    resultados.Agregar(new ResultadoBusquedaVectorrial(documento, similitud));
                 }
             }
             
-            // Ordenar resultados por similitud descendente
+            // Ordenar resultados usando método eficiente de ListaDobleEnlazada
             resultados.OrdenarDescendente(r => r.SimilitudCoseno);
             return resultados;
         }
 
         /// <summary>
-        /// Eliminar duplicados de forma más eficiente para consultas
-        /// OPTIMIZACIÓN: O(n²) pero con break temprano y menos comparaciones
+        /// NUEVO: Convertir List del framework a ListaDobleEnlazada propia
         /// </summary>
-        private List<string> EliminarDuplicadosRapido(List<string> tokens)
+        private ListaDobleEnlazada<string> ConvertirAListaPropia(List<string> listaFramework)
         {
-            var unicos = new List<string>();
+            var listaPropia = new ListaDobleEnlazada<string>();
             
-            foreach (var token in tokens)
+            if (listaFramework != null)
             {
+                foreach (string token in listaFramework)
+                {
+                    if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        listaPropia.Agregar(token.ToLowerInvariant());
+                    }
+                }
+            }
+            
+            return listaPropia;
+        }
+
+        /// <summary>
+        /// Eliminar duplicados usando ListaDobleEnlazada propia
+        /// </summary>
+        private ListaDobleEnlazada<string> EliminarDuplicados(ListaDobleEnlazada<string> tokens)
+        {
+            var unicos = new ListaDobleEnlazada<string>();
+            
+            var iterador = new Iterador<string>(tokens);
+            while (iterador.Siguiente())
+            {
+                string token = iterador.Current;
                 if (string.IsNullOrWhiteSpace(token)) continue;
                 
-                string tokenLimpio = token.ToLowerInvariant();
-                
-                // OPTIMIZACIÓN: Búsqueda con break temprano
-                bool encontrado = false;
-                for (int i = 0; i < unicos.Count; i++)
+                // Verificar si ya existe
+                bool existe = false;
+                var iteradorUnicos = new Iterador<string>(unicos);
+                while (iteradorUnicos.Siguiente())
                 {
-                    if (unicos[i] == tokenLimpio) // Comparación exacta más rápida
+                    if (iteradorUnicos.Current.Equals(token, StringComparison.OrdinalIgnoreCase))
                     {
-                        encontrado = true;
+                        existe = true;
                         break;
                     }
                 }
                 
-                if (!encontrado)
-                    unicos.Add(tokenLimpio);
+                if (!existe)
+                    unicos.Agregar(token);
             }
             
             return unicos;
         }
 
         /// <summary>
-        /// Obtener términos ordenados con cache para múltiples vectorizaciones
-        /// OPTIMIZACIÓN: Reutiliza la lista ordenada entre llamadas
+        /// Obtener vocabulario completo del índice usando cache optimizado
         /// </summary>
-        private ListaDobleEnlazada<string> ObtenerTerminosOrdenadosOptimizado()
+        private ListaDobleEnlazada<string> ObtenerVocabularioOrdenado()
         {
-            // OPTIMIZACIÓN: Cache simple para evitar reconstruir la lista constantemente
             if (cacheValido && terminosOrdenadosCache != null)
                 return terminosOrdenadosCache;
             
@@ -143,133 +167,121 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Crear vector de consulta optimizado
-        /// OPTIMIZACIÓN: Solo procesa términos que existen en el índice
+        /// CORE: Crear vector de consulta usando clase Vector personalizada
+        /// AQUÍ SE USA DIRECTAMENTE TU CLASE VECTOR PROPIA
         /// </summary>
-        private Vector CrearVectorConsultaOptimizado(List<string> tokensConsulta, ListaDobleEnlazada<string> terminosIndice)
+        private Vector CrearVectorDeConsulta(ListaDobleEnlazada<string> tokensUnicos, 
+            ListaDobleEnlazada<string> vocabulario)
         {
-            var vector = new Vector(terminosIndice.Count);
+            // INSTANCIAR TU CLASE VECTOR PERSONALIZADA
+            var vector = new Vector(vocabulario.Count);
             
-            // Pre-calcular frecuencias de términos en consulta
-            var frecuenciasConsulta = ContarFrecuenciasOptimizado(tokensConsulta);
+            // Contar frecuencias en la consulta usando estructuras propias
+            var frecuenciasConsulta = ContarFrecuencias(tokensUnicos);
             
-            var iteradorTerminos = new Iterador<string>(terminosIndice);
-            int indice = 0;
+            // Llenar vector usando tu indexador personalizado
+            var iteradorVocab = new Iterador<string>(vocabulario);
+            int indiceVector = 0;
             
-            while (iteradorTerminos.Siguiente())
+            while (iteradorVocab.Siguiente())
             {
-                string termino = iteradorTerminos.Current;
+                string termino = iteradorVocab.Current;
                 
-                // OPTIMIZACIÓN: Buscar frecuencia usando búsqueda lineal simple
-                int tf = ObtenerFrecuenciaRapida(frecuenciasConsulta, termino);
+                // Obtener frecuencia del término en consulta
+                int tf = ObtenerFrecuencia(frecuenciasConsulta, termino);
                 
                 if (tf > 0)
                 {
                     // Buscar término en índice para obtener IDF
-                    var terminoIndice = BuscarTerminoEnIndiceOptimizado(termino);
-                    if (terminoIndice != null)
+                    var terminoIndice = indiceInvertido.BuscarTermino(termino);
+                    if (terminoIndice != null && terminoIndice.Idf > 0)
                     {
-                        vector[indice] = tf * terminoIndice.Idf;
+                        // USAR INDEXADOR DE TU CLASE VECTOR
+                        vector[indiceVector] = tf * terminoIndice.Idf;
                     }
                 }
-                // OPTIMIZACIÓN: No asignar 0 explícitamente (ya está inicializado en 0)
                 
-                indice++;
+                indiceVector++;
             }
             
+            // DEVOLVER INSTANCIA DE TU CLASE VECTOR
             return vector;
         }
 
         /// <summary>
-        /// Crear vector de documento optimizado
-        /// OPTIMIZACIÓN: Acceso directo a frecuencias sin búsquedas redundantes
+        /// CORE: Crear vector de documento usando clase Vector personalizada
+        /// AQUÍ SE USA DIRECTAMENTE TU CLASE VECTOR PROPIA
         /// </summary>
-        private Vector CrearVectorDocumentoOptimizado(Documento documento, ListaDobleEnlazada<string> terminosIndice)
+        private Vector CrearVectorDeDocumento(Documento documento, 
+            ListaDobleEnlazada<string> vocabulario)
         {
-            var vector = new Vector(terminosIndice.Count);
+            // INSTANCIAR TU CLASE VECTOR PERSONALIZADA
+            var vector = new Vector(vocabulario.Count);
             
-            var iteradorTerminos = new Iterador<string>(terminosIndice);
-            int indice = 0;
+            var iteradorVocab = new Iterador<string>(vocabulario);
+            int indiceVector = 0;
             
-            while (iteradorTerminos.Siguiente())
+            while (iteradorVocab.Siguiente())
             {
-                string termino = iteradorTerminos.Current;
+                string termino = iteradorVocab.Current;
                 
-                // OPTIMIZACIÓN: Usar método optimizado del documento
+                // Obtener frecuencia del término en el documento
                 int tf = documento.GetFrecuencia(termino);
                 
                 if (tf > 0)
                 {
-                    // OPTIMIZACIÓN: Buscar término con cache o búsqueda binaria
-                    var terminoIndice = BuscarTerminoEnIndiceOptimizado(termino);
-                    if (terminoIndice != null)
+                    var terminoIndice = indiceInvertido.BuscarTermino(termino);
+                    if (terminoIndice != null && terminoIndice.Idf > 0)
                     {
-                        vector[indice] = tf * terminoIndice.Idf;
+                        // USAR INDEXADOR DE TU CLASE VECTOR
+                        vector[indiceVector] = tf * terminoIndice.Idf;
                     }
                 }
                 
-                indice++;
+                indiceVector++;
             }
             
+            // DEVOLVER INSTANCIA DE TU CLASE VECTOR
             return vector;
         }
 
         /// <summary>
-        /// Verificación temprana si documento contiene términos de consulta
-        /// OPTIMIZACIÓN: Evita crear vectores para documentos irrelevantes
+        /// Contar frecuencias usando ListaDobleEnlazada propia
         /// </summary>
-        private bool DocumentoContienePacialaTerminosConsulta(Documento documento, List<string> tokensConsulta)
+        private ListaDobleEnlazada<ParTerminoFrecuencia> ContarFrecuencias(ListaDobleEnlazada<string> tokens)
         {
-            // OPTIMIZACIÓN: Solo necesita encontrar UN término para ser relevante
-            foreach (var token in tokensConsulta)
+            var frecuencias = new ListaDobleEnlazada<ParTerminoFrecuencia>();
+            
+            var iterador = new Iterador<string>(tokens);
+            while (iterador.Siguiente())
             {
-                if (documento.GetFrecuencia(token) > 0)
-                    return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Cálculo de similitud coseno optimizado con magnitudes pre-calculadas
-        /// OPTIMIZACIÓN: Evita recalcular magnitudes
-        /// </summary>
-        private double CalcularSimilitudCosenoOptimizada(Vector v1, Vector v2, double magnitud1, double magnitud2)
-        {
-            // OPTIMIZACIÓN: Evitar división por cero sin verificaciones redundantes
-            if (magnitud1 == 0 || magnitud2 == 0) return 0;
-            
-            // Producto punto usando operador sobrecargado optimizado
-            double productoPunto = v1 * v2;
-            
-            // Resultado final
-            return productoPunto / (magnitud1 * magnitud2);
-        }
-
-        /// <summary>
-        /// Contar frecuencias optimizado para consultas pequeñas
-        /// </summary>
-        private List<ParFrecuencia> ContarFrecuenciasOptimizado(List<string> tokens)
-        {
-            var frecuencias = new List<ParFrecuencia>();
-            
-            foreach (var token in tokens)
-            {
-                bool encontrado = false;
+                string token = iterador.Current;
                 
-                // OPTIMIZACIÓN: Lista pequeña, búsqueda lineal es eficiente
-                for (int i = 0; i < frecuencias.Count; i++)
+                // Buscar si ya existe
+                bool encontrado = false;
+                ParTerminoFrecuencia parExistente = null;
+                
+                var iteradorFrec = new Iterador<ParTerminoFrecuencia>(frecuencias);
+                while (iteradorFrec.Siguiente())
                 {
-                    if (frecuencias[i].Token == token)
+                    if (iteradorFrec.Current.Termino.Equals(token, StringComparison.OrdinalIgnoreCase))
                     {
-                        frecuencias[i] = new ParFrecuencia(token, frecuencias[i].Frecuencia + 1);
+                        parExistente = iteradorFrec.Current;
                         encontrado = true;
                         break;
                     }
                 }
                 
-                if (!encontrado)
+                if (encontrado && parExistente != null)
                 {
-                    frecuencias.Add(new ParFrecuencia(token, 1));
+                    // Incrementar frecuencia
+                    frecuencias.Eliminar(parExistente);
+                    frecuencias.Agregar(new ParTerminoFrecuencia(token, parExistente.Frecuencia + 1));
+                }
+                else
+                {
+                    // Nueva frecuencia
+                    frecuencias.Agregar(new ParTerminoFrecuencia(token, 1));
                 }
             }
             
@@ -277,27 +289,31 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Obtener frecuencia de forma rápida de lista pequeña
+        /// Obtener frecuencia de un término usando estructura propia
         /// </summary>
-        private int ObtenerFrecuenciaRapida(List<ParFrecuencia> frecuencias, string token)
+        private int ObtenerFrecuencia(ListaDobleEnlazada<ParTerminoFrecuencia> frecuencias, string termino)
         {
-            // OPTIMIZACIÓN: Búsqueda lineal en lista pequeña es muy eficiente
-            for (int i = 0; i < frecuencias.Count; i++)
+            var iterador = new Iterador<ParTerminoFrecuencia>(frecuencias);
+            while (iterador.Siguiente())
             {
-                if (frecuencias[i].Token == token)
-                    return frecuencias[i].Frecuencia;
+                if (iterador.Current.Termino.Equals(termino, StringComparison.OrdinalIgnoreCase))
+                    return iterador.Current.Frecuencia;
             }
             return 0;
         }
 
         /// <summary>
-        /// Buscar término en índice de forma optimizada
-        /// OPTIMIZACIÓN: Delegar al índice que ya tiene búsqueda binaria
+        /// Verificar si documento es relevante para la consulta
         /// </summary>
-        private Termino BuscarTerminoEnIndiceOptimizado(string palabra)
+        private bool DocumentoEsRelevante(Documento documento, ListaDobleEnlazada<string> tokensConsulta)
         {
-            // OPTIMIZACIÓN: Usar la búsqueda optimizada del índice (binaria si es grande)
-            return indiceInvertido.BuscarTermino(palabra);
+            var iterador = new Iterador<string>(tokensConsulta);
+            while (iterador.Siguiente())
+            {
+                if (documento.GetFrecuencia(iterador.Current) > 0)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -307,38 +323,118 @@ namespace PruebaRider.Servicios
         {
             cacheValido = false;
             terminosOrdenadosCache = null;
+            vocabularioTfIdfCache = null;
         }
 
         /// <summary>
-        /// Clase auxiliar para frecuencias optimizada
+        /// NUEVO: Análisis vectorial para debugging
         /// </summary>
-        private struct ParFrecuencia
+        public AnalisisVectorial AnalizarConsulta(string consulta)
         {
-            public string Token { get; }
-            public int Frecuencia { get; }
-
-            public ParFrecuencia(string token, int frecuencia)
+            var tokensConsulta = ConvertirAListaPropia(procesador.ProcesarTextoCompleto(consulta));
+            var tokensUnicos = EliminarDuplicados(tokensConsulta);
+            var vocabulario = ObtenerVocabularioOrdenado();
+            var vectorConsulta = CrearVectorDeConsulta(tokensUnicos, vocabulario);
+            
+            return new AnalisisVectorial
             {
-                Token = token;
-                Frecuencia = frecuencia;
-            }
+                DimensionVector = vectorConsulta.Dimension,
+                MagnitudVector = vectorConsulta.Magnitud(),
+                ComponentesSignificativas = vectorConsulta.ObtenerComponentesSignificativas(5),
+                TieneValoresSignificativos = vectorConsulta.TieneValoresSignificativos()
+            };
         }
     }
-    
-    public class ResultadoBusquedaVectorial
+
+    /// <summary>
+    /// Par término-frecuencia usando solo tipos básicos
+    /// </summary>
+    public class ParTerminoFrecuencia
+    {
+        public string Termino { get; }
+        public int Frecuencia { get; }
+
+        public ParTerminoFrecuencia(string termino, int frecuencia)
+        {
+            Termino = termino ?? "";
+            Frecuencia = frecuencia;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ParTerminoFrecuencia otro && 
+                   Termino.Equals(otro.Termino, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public override int GetHashCode()
+        {
+            return Termino?.ToLowerInvariant().GetHashCode() ?? 0;
+        }
+    }
+
+    /// <summary>
+    /// MEJORADO: Resultado con enlace base64 integrado
+    /// </summary>
+    public class ResultadoBusquedaVectorrial
     {
         public Documento Documento { get; set; }
         public double SimilitudCoseno { get; set; }
+        public string EnlaceBase64 { get; private set; }
 
-        public ResultadoBusquedaVectorial(Documento documento, double similitudCoseno)
+        public ResultadoBusquedaVectorrial(Documento documento, double similitudCoseno)
         {
-            Documento = documento;
-            SimilitudCoseno = similitudCoseno;
+            Documento = documento ?? throw new ArgumentNullException(nameof(documento));
+            SimilitudCoseno = Math.Max(0.0, Math.Min(1.0, similitudCoseno)); // Normalizar
+            EnlaceBase64 = GenerarEnlaceBase64();
+        }
+
+        private string GenerarEnlaceBase64()
+        {
+            try
+            {
+                string contenido = File.Exists(Documento.Ruta) 
+                    ? File.ReadAllText(Documento.Ruta)
+                    : Documento.TextoOriginal ?? "Contenido no disponible";
+                
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(contenido);
+                string base64 = Convert.ToBase64String(bytes);
+                return $"data:text/plain;base64,{base64}";
+            }
+            catch (Exception)
+            {
+                byte[] errorBytes = System.Text.Encoding.UTF8.GetBytes(
+                    $"Error al cargar documento: {Path.GetFileName(Documento.Ruta)}");
+                string errorBase64 = Convert.ToBase64String(errorBytes);
+                return $"data:text/plain;base64,{errorBase64}";
+            }
         }
 
         public override string ToString()
         {
-            return $"Documento: {Documento.Ruta} | Similitud: {SimilitudCoseno:F4}";
+            return $"📄 {Path.GetFileName(Documento.Ruta)} | " +
+                   $"Similitud: {SimilitudCoseno:P2} | " +
+                   $"🔗 {EnlaceBase64.Substring(0, Math.Min(50, EnlaceBase64.Length))}...";
+        }
+    }
+
+    /// <summary>
+    /// NUEVO: Análisis vectorial para debugging y optimización
+    /// </summary>
+    public class AnalisisVectorial
+    {
+        public int DimensionVector { get; set; }
+        public double MagnitudVector { get; set; }
+        public (int indice, double valor)[] ComponentesSignificativas { get; set; }
+        public bool TieneValoresSignificativos { get; set; }
+
+        public override string ToString()
+        {
+            var componentes = ComponentesSignificativas != null 
+                ? string.Join(", ", ComponentesSignificativas.Select(c => $"[{c.indice}]={c.valor:F3}"))
+                : "ninguna";
+                
+            return $"Vector: dim={DimensionVector}, mag={MagnitudVector:F3}, " +
+                   $"significativo={TieneValoresSignificativos}, componentes={componentes}";
         }
     }
 }

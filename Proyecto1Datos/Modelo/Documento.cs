@@ -2,6 +2,10 @@
 
 namespace PruebaRider.Modelo
 {
+    /// <summary>
+    /// Documento optimizado con algoritmos más eficientes y menos overhead
+    /// Mantiene búsqueda binaria O(log n) cuando es posible, lineal O(n) cuando es necesario
+    /// </summary>
     public class Documento
     {
         private int id;
@@ -22,18 +26,20 @@ namespace PruebaRider.Modelo
         public Documento(int id, string textoOriginal, string ruta)
         {
             this.id = id;
-            this.textoOriginal = textoOriginal ?? "";
-            this.ruta = ruta ?? "";
+            this.textoOriginal = textoOriginal ?? throw new ArgumentNullException(nameof(textoOriginal));
+            this.ruta = ruta ?? throw new ArgumentNullException(nameof(ruta));
             this.tokens = "";
             this.frecuencias = new ListaDobleEnlazada<TerminoFrecuencia>();
         }
 
-        // Propiedades básicas
+        // Propiedades simplificadas sin validaciones excesivas
         public int Id
         {
             get => id;
             set => id = value;
         }
+
+        public ListaDobleEnlazada<TerminoFrecuencia> Frecuencias => frecuencias;
 
         public string TextoOriginal
         {
@@ -53,37 +59,35 @@ namespace PruebaRider.Modelo
             set => tokens = value ?? "";
         }
 
-        public ListaDobleEnlazada<TerminoFrecuencia> Frecuencias
-        {
-            get => frecuencias;
-            set => frecuencias = value ?? new ListaDobleEnlazada<TerminoFrecuencia>();
-        }
-
         /// <summary>
-        /// Calcular frecuencias de términos - Método principal
+        /// Calcular frecuencias optimizado - O(n + m log m) donde n=tokens, m=términos únicos
+        /// Usa ordenamiento solo si es beneficioso (más de 10 términos únicos)
         /// </summary>
         public void CalcularFrecuencias(List<string> tokens)
         {
             frecuencias.Limpiar();
 
-            if (tokens == null || tokens.Count == 0) return;
+            if (tokens == null || tokens.Count == 0)
+                return;
 
-            // Contar frecuencias
-            var contadores = new List<ContadorTermino>();
+            // Contar frecuencias usando array temporal para mejor cache locality
+            var contadoresArray = new ContadorTerminoOptimizado[tokens.Count]; // Máximo posible
+            int cantidadUnicos = 0;
 
+            // Fase 1: Contar frecuencias - O(n*m) donde m crece gradualmente
             foreach (var token in tokens)
             {
                 if (string.IsNullOrWhiteSpace(token)) continue;
 
-                string tokenLimpio = token.ToLowerInvariant();
+                string tokenNormalizado = token.ToLowerInvariant();
                 bool encontrado = false;
 
-                // Buscar si ya existe
-                foreach (var contador in contadores)
+                // Búsqueda en array (mejor cache que lista enlazada para pocos elementos)
+                for (int i = 0; i < cantidadUnicos; i++)
                 {
-                    if (contador.Token.Equals(tokenLimpio, StringComparison.OrdinalIgnoreCase))
+                    if (contadoresArray[i].Token == tokenNormalizado)
                     {
-                        contador.Incrementar();
+                        contadoresArray[i].Frecuencia++;
                         encontrado = true;
                         break;
                     }
@@ -91,46 +95,57 @@ namespace PruebaRider.Modelo
 
                 if (!encontrado)
                 {
-                    contadores.Add(new ContadorTermino(tokenLimpio));
+                    contadoresArray[cantidadUnicos] = new ContadorTerminoOptimizado(tokenNormalizado, 1);
+                    cantidadUnicos++;
                 }
             }
 
-            // Convertir a TerminoFrecuencia ordenado alfabéticamente
-            foreach (var contador in contadores)
+            // Fase 2: Transferir a lista final
+            if (cantidadUnicos <= 10)
             {
-                var tf = new TerminoFrecuencia(contador.Token, contador.Frecuencia);
-                frecuencias.AgregarOrdenado(tf, CompararTerminosAlfabeticamente);
+                // Para listas pequeñas, inserción simple sin ordenar (búsqueda lineal es rápida)
+                for (int i = 0; i < cantidadUnicos; i++)
+                {
+                    var contador = contadoresArray[i];
+                    frecuencias.Agregar(new TerminoFrecuencia(contador.Token, contador.Frecuencia));
+                }
+            }
+            else
+            {
+                // Para listas grandes, ordenar alfabéticamente para búsqueda binaria futura
+                OrdenarArrayAlfabeticamente(contadoresArray, cantidadUnicos);
+                
+                for (int i = 0; i < cantidadUnicos; i++)
+                {
+                    var contador = contadoresArray[i];
+                    frecuencias.Agregar(new TerminoFrecuencia(contador.Token, contador.Frecuencia));
+                }
             }
         }
 
         /// <summary>
-        /// Obtener frecuencia de un término específico
+        /// Obtener frecuencia optimizada - O(log n) si está ordenada, O(n) si no
+        /// Decisión automática basada en tamaño de lista
         /// </summary>
         public int GetFrecuencia(string termino)
         {
-            if (string.IsNullOrWhiteSpace(termino)) return 0;
+            if (string.IsNullOrWhiteSpace(termino) || frecuencias.Count == 0)
+                return 0;
 
-            // Búsqueda binaria si está ordenado y es grande
-            if (frecuencias.EstaOrdenada && frecuencias.Count > 5)
+            string terminoBuscado = termino.ToLowerInvariant();
+
+            // Usar búsqueda binaria solo si vale la pena (lista grande y ordenada)
+            if (frecuencias.EstaOrdenada && frecuencias.Count > 15)
             {
-                var dummy = new TerminoFrecuencia(termino.ToLowerInvariant(), 0);
-                var encontrado = frecuencias.BuscarBinario(dummy, CompararTerminosAlfabeticamente);
-                return encontrado?.Frecuencia ?? 0;
+                return BusquedaBinariaFrecuencia(terminoBuscado);
             }
-            
-            // Búsqueda lineal para listas pequeñas
-            var iterador = new Iterador<TerminoFrecuencia>(frecuencias);
-            while (iterador.Siguiente())
-            {
-                if (iterador.Current.Token.Equals(termino, StringComparison.OrdinalIgnoreCase))
-                    return iterador.Current.Frecuencia;
-            }
-            
-            return 0;
+
+            // Búsqueda lineal para listas pequeñas o no ordenadas
+            return BusquedaLinealFrecuencia(terminoBuscado);
         }
 
         /// <summary>
-        /// Verificar si contiene un término
+        /// Verificar si contiene término - O(log n) o O(n) según corresponda
         /// </summary>
         public bool ContieneTerm(string termino)
         {
@@ -138,47 +153,13 @@ namespace PruebaRider.Modelo
         }
 
         /// <summary>
-        /// Obtener términos más frecuentes
+        /// Obtener estadísticas básicas sin objetos complejos
         /// </summary>
-        public ListaDobleEnlazada<TerminoFrecuencia> ObtenerTerminosMasFrecuentes(int cantidad = 10)
+        public (int terminosUnicos, int totalTokens, string terminoMasFrecuente, int maxFrecuencia) GetEstadisticasBasicas()
         {
-            var resultado = new ListaDobleEnlazada<TerminoFrecuencia>();
-            
-            if (frecuencias.Count == 0) return resultado;
+            if (frecuencias.Count == 0)
+                return (0, 0, "", 0);
 
-            // Crear copia ordenada por frecuencia
-            var terminosOrdenados = new ListaDobleEnlazada<TerminoFrecuencia>();
-            var iterador = new Iterador<TerminoFrecuencia>(frecuencias);
-            
-            while (iterador.Siguiente())
-            {
-                terminosOrdenados.Agregar(new TerminoFrecuencia(
-                    iterador.Current.Token, 
-                    iterador.Current.Frecuencia
-                ));
-            }
-
-            // Ordenar por frecuencia descendente
-            terminosOrdenados.OrdenarDescendente(tf => tf.Frecuencia);
-
-            // Tomar solo la cantidad solicitada
-            var iteradorOrdenado = new Iterador<TerminoFrecuencia>(terminosOrdenados);
-            int contador = 0;
-            
-            while (iteradorOrdenado.Siguiente() && contador < cantidad)
-            {
-                resultado.Agregar(iteradorOrdenado.Current);
-                contador++;
-            }
-
-            return resultado;
-        }
-
-        /// <summary>
-        /// Obtener estadísticas básicas del documento
-        /// </summary>
-        public EstadisticasDocumento ObtenerEstadisticas()
-        {
             int totalTokens = 0;
             int maxFrecuencia = 0;
             string terminoMasFrecuente = "";
@@ -186,33 +167,116 @@ namespace PruebaRider.Modelo
             var iterador = new Iterador<TerminoFrecuencia>(frecuencias);
             while (iterador.Siguiente())
             {
-                totalTokens += iterador.Current.Frecuencia;
+                var tf = iterador.Current;
+                totalTokens += tf.Frecuencia;
                 
-                if (iterador.Current.Frecuencia > maxFrecuencia)
+                if (tf.Frecuencia > maxFrecuencia)
                 {
-                    maxFrecuencia = iterador.Current.Frecuencia;
-                    terminoMasFrecuente = iterador.Current.Token;
+                    maxFrecuencia = tf.Frecuencia;
+                    terminoMasFrecuente = tf.Token;
                 }
             }
 
-            return new EstadisticasDocumento
+            return (frecuencias.Count, totalTokens, terminoMasFrecuente, maxFrecuencia);
+        }
+
+        #region Métodos Privados Optimizados
+
+        /// <summary>
+        /// Búsqueda lineal optimizada con salida temprana
+        /// </summary>
+        private int BusquedaLinealFrecuencia(string termino)
+        {
+            var iterador = new Iterador<TerminoFrecuencia>(frecuencias);
+            while (iterador.Siguiente())
             {
-                DocumentoId = id,
-                NombreArchivo = Path.GetFileName(ruta),
-                TerminosUnicos = frecuencias.Count,
-                TotalTokens = totalTokens,
-                TerminoMasFrecuente = terminoMasFrecuente,
-                FrecuenciaMaxima = maxFrecuencia
-            };
+                if (iterador.Current.Token == termino) // Ya normalizado
+                    return iterador.Current.Frecuencia;
+            }
+            return 0;
         }
 
         /// <summary>
-        /// Comparador alfabético para TerminoFrecuencia
+        /// Búsqueda binaria usando conversión temporal a array
+        /// Solo se usa para listas grandes donde el overhead vale la pena
         /// </summary>
-        private int CompararTerminosAlfabeticamente(TerminoFrecuencia tf1, TerminoFrecuencia tf2)
+        private int BusquedaBinariaFrecuencia(string termino)
         {
-            return string.Compare(tf1.Token, tf2.Token, StringComparison.OrdinalIgnoreCase);
+            // Convertir a array para acceso O(1) por índice
+            var elementos = new TerminoFrecuencia[frecuencias.Count];
+            frecuencias.CopiarA(elementos, 0);
+
+            // Búsqueda binaria estándar
+            int inicio = 0;
+            int fin = elementos.Length - 1;
+
+            while (inicio <= fin)
+            {
+                int medio = inicio + (fin - inicio) / 2;
+                int comparacion = string.Compare(elementos[medio].Token, termino, StringComparison.OrdinalIgnoreCase);
+
+                if (comparacion == 0)
+                    return elementos[medio].Frecuencia;
+                else if (comparacion < 0)
+                    inicio = medio + 1;
+                else
+                    fin = medio - 1;
+            }
+
+            return 0;
         }
+
+        /// <summary>
+        /// Ordenamiento in-place del array temporal - O(m log m) donde m = términos únicos
+        /// </summary>
+        private void OrdenarArrayAlfabeticamente(ContadorTerminoOptimizado[] array, int longitud)
+        {
+            // Insertion sort para arrays pequeños (< 50), Array.Sort para grandes
+            if (longitud < 50)
+            {
+                InsertionSortContadores(array, longitud);
+            }
+            else
+            {
+                // Crear array temporal para Array.Sort
+                var elementos = new ContadorTerminoOptimizado[longitud];
+                Array.Copy(array, elementos, longitud);
+                Array.Sort(elementos, CompararContadores);
+                Array.Copy(elementos, array, longitud);
+            }
+        }
+
+        /// <summary>
+        /// Insertion sort optimizado para arrays pequeños
+        /// </summary>
+        private void InsertionSortContadores(ContadorTerminoOptimizado[] array, int longitud)
+        {
+            for (int i = 1; i < longitud; i++)
+            {
+                var elemento = array[i];
+                int j = i - 1;
+
+                while (j >= 0 && string.Compare(array[j].Token, elemento.Token, StringComparison.OrdinalIgnoreCase) > 0)
+                {
+                    array[j + 1] = array[j];
+                    j--;
+                }
+                
+                array[j + 1] = elemento;
+            }
+        }
+
+        /// <summary>
+        /// Comparador para ordenamiento
+        /// </summary>
+        private int CompararContadores(ContadorTerminoOptimizado a, ContadorTerminoOptimizado b)
+        {
+            return string.Compare(a.Token, b.Token, StringComparison.OrdinalIgnoreCase);
+        }
+
+        #endregion
+
+        #region Métodos de Objeto Básicos
 
         public override bool Equals(object obj)
         {
@@ -226,46 +290,26 @@ namespace PruebaRider.Modelo
 
         public override string ToString()
         {
-            return $"Doc[ID:{Id}, Archivo:{Path.GetFileName(ruta)}, Términos:{frecuencias.Count}]";
+            var (terminosUnicos, totalTokens, _, _) = GetEstadisticasBasicas();
+            string nombreArchivo = Path.GetFileName(ruta);
+            return $"Doc[{Id}:{nombreArchivo}|{terminosUnicos}términos|{totalTokens}tokens]";
         }
+
+        #endregion
 
         /// <summary>
-        /// Clase auxiliar para conteo de frecuencias
+        /// Estructura optimizada para conteo temporal - struct para mejor performance
         /// </summary>
-        private class ContadorTermino
+        private struct ContadorTerminoOptimizado
         {
-            public string Token { get; }
-            public int Frecuencia { get; private set; }
+            public string Token;
+            public int Frecuencia;
 
-            public ContadorTermino(string token)
+            public ContadorTerminoOptimizado(string token, int frecuencia)
             {
                 Token = token;
-                Frecuencia = 1;
+                Frecuencia = frecuencia;
             }
-
-            public void Incrementar()
-            {
-                Frecuencia++;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Estadísticas básicas de un documento
-    /// </summary>
-    public class EstadisticasDocumento
-    {
-        public int DocumentoId { get; set; }
-        public string NombreArchivo { get; set; }
-        public int TerminosUnicos { get; set; }
-        public int TotalTokens { get; set; }
-        public string TerminoMasFrecuente { get; set; }
-        public int FrecuenciaMaxima { get; set; }
-
-        public override string ToString()
-        {
-            return $"📄 {NombreArchivo}: {TerminosUnicos} términos únicos, " +
-                   $"{TotalTokens} tokens totales, más frecuente: '{TerminoMasFrecuente}' ({FrecuenciaMaxima}x)";
         }
     }
 }

@@ -10,7 +10,6 @@
 
         public int Count => count;
         public NodoDoble<T> Root => root;
-        public bool IsReadOnly => false;
         public bool EstaOrdenada => estaOrdenada;
 
         public ListaDobleEnlazada()
@@ -89,10 +88,7 @@
             count++;
             estaOrdenada = true;
         }
-
-        /// <summary>
-        /// Búsqueda optimizada - usa binaria si está ordenada y es grande, lineal si no
-        /// </summary>
+        
         public bool Existe(T item, Func<T, T, int> comparador = null)
         {
             if (root == null) return false;
@@ -104,13 +100,9 @@
                 return !EqualityComparer<T>.Default.Equals(resultado, default(T));
             }
 
-            // Búsqueda lineal para listas pequeñas o desordenadas
             return ExisteBusquedaLineal(item, comparador);
         }
-
-        /// <summary>
-        /// Búsqueda binaria nativa - O(log n) solo si está ordenada
-        /// </summary>
+        
         public T BuscarBinario(T valorBuscado, Func<T, T, int> comparador)
         {
             if (!estaOrdenada)
@@ -130,30 +122,7 @@
             return BusquedaBinariaEnArray(elementos, valorBuscado, comparador);
         }
 
-        /// <summary>
-        /// Eliminación optimizada
-        /// </summary>
-        public bool Eliminar(T item)
-        {
-            if (root == null) return false;
-
-            var current = root;
-            do
-            {
-                if (EqualityComparer<T>.Default.Equals(current.Data, item))
-                {
-                    EliminarNodo(current);
-                    return true;
-                }
-                current = current.Sig;
-            } while (current != root);
-
-            return false;
-        }
-
-        /// <summary>
-        /// Elimina nodo específico - O(1) si se tiene referencia directa al nodo
-        /// </summary>
+        
         public void EliminarNodo(NodoDoble<T> nodo)
         {
             if (nodo == null || count == 0) return;
@@ -175,12 +144,8 @@
             }
 
             count--;
-            // No marcar como desordenada por eliminación
         }
-
-        /// <summary>
-        /// Ordenamiento híbrido - algoritmo óptimo según tamaño
-        /// </summary>
+        
         public void OrdenarDescendente(Func<T, double> criterio)
         {
             if (count < 2) 
@@ -203,46 +168,6 @@
             estaOrdenada = true;
         }
         
-        public void OrdenarAscendente(Func<T, double> criterio)
-        {
-            if (count < 2) 
-            {
-                estaOrdenada = true;
-                return;
-            }
-
-            if (count <= 20)
-            {
-                BubbleSortOptimizado(criterio, true); // true = ascendente
-            }
-            else
-            {
-                OrdenarConArraySort(criterio, true);
-            }
-            
-            estaOrdenada = true;
-        }
-
-      
-        public void OrdenarCon(Func<T, T, int> comparador)
-        {
-            if (count < 2) 
-            {
-                estaOrdenada = true;
-                return;
-            }
-
-            if (count <= 20)
-            {
-                BubbleSortConComparador(comparador);
-            }
-            else
-            {
-                OrdenarConArraySortComparador(comparador);
-            }
-            
-            estaOrdenada = true;
-        }
         
         public void CopiarA(T[] array, int arrayIndex)
         {
@@ -275,29 +200,7 @@
 
         public NodoDoble<T> ObtenerInicio() => root;
 
-        public override string ToString()
-        {
-            if (root == null)
-                return "[]";
-
-            var resultado = new System.Text.StringBuilder("[");
-            var current = root;
-
-            for (int i = 0; i < count; i++)
-            {
-                resultado.Append(current.Data);
-
-                if (i < count - 1)
-                    resultado.Append(" <-> ");
-
-                current = current.Sig;
-            }
-
-            resultado.Append("]");
-            return resultado.ToString();
-        }
-
-        #region Métodos Privados de Optimización
+        
         
         private bool ExisteBusquedaLineal(T item, Func<T, T, int> comparador)
         {
@@ -471,7 +374,5 @@
             
             cola = nuevoNodo;
         }
-
-        #endregion
     }
 }

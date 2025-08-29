@@ -50,10 +50,5 @@ namespace PruebaRider.Estructura.Nodo
             currentPosition = -1;
         }
         
-        // Método para reiniciar el iterador
-        public void Reiniciar()
-        {
-            Limpiar();
-        }
     }
 }
