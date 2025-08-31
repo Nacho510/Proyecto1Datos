@@ -1,6 +1,6 @@
 ﻿namespace PruebaRider.Estructura.Nodo
 {
-   
+
     public class ListaDobleEnlazada<T>
     {
         private NodoDoble<T> root;
@@ -38,15 +38,37 @@
                 // Usar cola pointer para inserción O(1)
                 newNode.Ant = cola;
                 newNode.Sig = root;
-                
+
                 cola.Sig = newNode;
                 root.Ant = newNode;
-                
+
                 cola = newNode; // Actualizar cola pointer
             }
 
             count++;
             estaOrdenada = false; // Asumir que se desordena al agregar arbitrariamente
+        }
+
+        /// <summary>
+        /// NUEVO: Eliminar elemento específico - O(n)
+        /// </summary>
+        public bool Eliminar(T item)
+        {
+            if (root == null) return false;
+
+            var current = root;
+            do
+            {
+                if (EqualityComparer<T>.Default.Equals(current.Data, item))
+                {
+                    EliminarNodo(current);
+                    return true;
+                }
+
+                current = current.Sig;
+            } while (current != root);
+
+            return false;
         }
 
         /// <summary>
@@ -72,14 +94,15 @@
                 {
                     // Insertar antes de current
                     InsertarAntesDe(newNode, current);
-                    
+
                     if (current == root)
                         root = newNode;
-                        
+
                     count++;
                     estaOrdenada = true;
                     return;
                 }
+
                 current = current.Sig;
             } while (current != root);
 
@@ -88,7 +111,7 @@
             count++;
             estaOrdenada = true;
         }
-        
+
         public bool Existe(T item, Func<T, T, int> comparador = null)
         {
             if (root == null) return false;
@@ -102,7 +125,7 @@
 
             return ExisteBusquedaLineal(item, comparador);
         }
-        
+
         public T BuscarBinario(T valorBuscado, Func<T, T, int> comparador)
         {
             if (!estaOrdenada)
@@ -122,7 +145,7 @@
             return BusquedaBinariaEnArray(elementos, valorBuscado, comparador);
         }
 
-        
+
         public void EliminarNodo(NodoDoble<T> nodo)
         {
             if (nodo == null || count == 0) return;
@@ -145,10 +168,10 @@
 
             count--;
         }
-        
+
         public void OrdenarDescendente(Func<T, double> criterio)
         {
-            if (count < 2) 
+            if (count < 2)
             {
                 estaOrdenada = true;
                 return;
@@ -164,11 +187,33 @@
                 // Array.Sort para listas grandes - O(n log n)
                 OrdenarConArraySort(criterio, false);
             }
-            
+
             estaOrdenada = true;
         }
-        
-        
+
+        /// <summary>
+        /// NUEVO: Ordenar con comparador personalizado
+        /// </summary>
+        public void OrdenarCon(Func<T, T, int> comparador)
+        {
+            if (count < 2)
+            {
+                estaOrdenada = true;
+                return;
+            }
+
+            if (count <= 20)
+            {
+                BubbleSortConComparador(comparador);
+            }
+            else
+            {
+                OrdenarConArraySortComparador(comparador);
+            }
+
+            estaOrdenada = true;
+        }
+
         public void CopiarA(T[] array, int arrayIndex)
         {
             if (array == null)
@@ -200,8 +245,8 @@
 
         public NodoDoble<T> ObtenerInicio() => root;
 
-        
-        
+
+
         private bool ExisteBusquedaLineal(T item, Func<T, T, int> comparador)
         {
             var current = root;
@@ -223,7 +268,7 @@
 
             return false;
         }
-        
+
         private T BusquedaLineal(T valorBuscado, Func<T, T, int> comparador)
         {
             var current = root;
@@ -237,7 +282,7 @@
 
             return default(T);
         }
-        
+
         private T BusquedaBinariaEnArray(T[] elementos, T valorBuscado, Func<T, T, int> comparador)
         {
             int inicio = 0;
@@ -258,7 +303,7 @@
 
             return default(T);
         }
-        
+
         private void BubbleSortOptimizado(Func<T, double> criterio, bool ascendente)
         {
             if (count < 2) return;
@@ -277,9 +322,7 @@
                     double valorActual = criterio(actual.Data);
                     double valorSiguiente = criterio(siguiente.Data);
 
-                    bool debeIntercambiar = ascendente ? 
-                        valorActual > valorSiguiente : 
-                        valorActual < valorSiguiente;
+                    bool debeIntercambiar = ascendente ? valorActual > valorSiguiente : valorActual < valorSiguiente;
 
                     if (debeIntercambiar)
                     {
@@ -288,12 +331,14 @@
                         siguiente.Data = temp;
                         huboIntercambio = true;
                     }
+
                     actual = actual.Sig;
                 }
+
                 pasadas++;
             } while (huboIntercambio && pasadas < count);
         }
-        
+
         private void BubbleSortConComparador(Func<T, T, int> comparador)
         {
             if (count < 2) return;
@@ -307,7 +352,7 @@
                 for (int i = 0; i < count - 1; i++)
                 {
                     var siguiente = actual.Sig;
-                    
+
                     if (comparador(actual.Data, siguiente.Data) > 0)
                     {
                         var temp = actual.Data;
@@ -315,16 +360,17 @@
                         siguiente.Data = temp;
                         huboIntercambio = true;
                     }
+
                     actual = actual.Sig;
                 }
             } while (huboIntercambio);
         }
-        
+
         private void OrdenarConArraySort(Func<T, double> criterio, bool ascendente)
         {
             var elementos = new T[count];
             CopiarA(elementos, 0);
-            
+
             if (ascendente)
             {
                 Array.Sort(elementos, (a, b) => criterio(a).CompareTo(criterio(b)));
@@ -333,19 +379,20 @@
             {
                 Array.Sort(elementos, (a, b) => criterio(b).CompareTo(criterio(a)));
             }
-            
+
             ReconstruirDesdeArray(elementos);
         }
+
         private void OrdenarConArraySortComparador(Func<T, T, int> comparador)
         {
             var elementos = new T[count];
             CopiarA(elementos, 0);
-            
+
             Array.Sort(elementos, (a, b) => comparador(a, b));
-            
+
             ReconstruirDesdeArray(elementos);
         }
-        
+
         private void ReconstruirDesdeArray(T[] elementos)
         {
             Limpiar();
@@ -354,24 +401,24 @@
                 Agregar(elemento);
             }
         }
-        
+
         private void InsertarAntesDe(NodoDoble<T> nuevoNodo, NodoDoble<T> nodoExistente)
         {
             nuevoNodo.Sig = nodoExistente;
             nuevoNodo.Ant = nodoExistente.Ant;
-            
+
             nodoExistente.Ant.Sig = nuevoNodo;
             nodoExistente.Ant = nuevoNodo;
         }
-        
+
         private void InsertarAlFinal(NodoDoble<T> nuevoNodo)
         {
             nuevoNodo.Ant = cola;
             nuevoNodo.Sig = root;
-            
+
             cola.Sig = nuevoNodo;
             root.Ant = nuevoNodo;
-            
+
             cola = nuevoNodo;
         }
     }
