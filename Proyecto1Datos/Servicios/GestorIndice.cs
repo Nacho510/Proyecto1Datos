@@ -169,7 +169,7 @@ namespace PruebaRider.Servicios
         
                 // Convertir a tipo original
                 var resultados = new ListaDobleEnlazada<ResultadoBusquedaVectorial>();
-                var iterador = new Iterador<ResultadoBusquedaVectorialMejorado>(resultadosMejorados);
+                var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
         
                 while (iterador.Siguiente())
                 {
@@ -237,7 +237,7 @@ namespace PruebaRider.Servicios
         /// <summary>
         /// NUEVO: Analizar consulta para debugging (usando Vector personalizado)
         /// </summary>
-        public AnalisisConsultaVectorial AnalizarConsulta(string consulta)
+        /*public AnalisisConsultaVectorial AnalizarConsulta(string consulta)
         {
             try
             {
@@ -259,7 +259,7 @@ namespace PruebaRider.Servicios
                     VocabularioTotal = 0
                 };
             }
-        }
+        }*/
 
         /// <summary>
         /// Limpiar índice completamente

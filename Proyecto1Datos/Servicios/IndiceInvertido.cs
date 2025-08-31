@@ -238,7 +238,7 @@ namespace PruebaRider.Servicios
         /// CORE: Búsqueda vectorial usando ÚNICAMENTE Vector personalizado
         /// AQUÍ SE USA LA CLASE Vector PROPIA PARA SIMILITUD COSENO
         /// </summary>
-        public ListaDobleEnlazada<ResultadoBusquedaVectorialMejorado> BuscarConSimilitudCoseno(string consulta)
+        public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
         {
             if (buscadorVectorial == null)
             {
@@ -424,13 +424,13 @@ namespace PruebaRider.Servicios
         /// <summary>
         /// NUEVO: Análisis vectorial de una consulta para debugging
         /// </summary>
-        public AnalisisConsultaVectorial AnalizarConsultaVectorial(string consulta)
+       /* public AnalisisConsultaVectorial AnalizarConsultaVectorial(string consulta)
         {
             if (buscadorVectorial == null)
                 buscadorVectorial = new BuscadorVectorial(this);
                 
             return buscadorVectorial.AnalizarConsulta(consulta);
-        }
+        }*/
 
         /// <summary>
         /// Ordenar índice alfabéticamente para búsqueda binaria optimizada
