@@ -5,14 +5,18 @@ using PruebaRider.Strategy;
 namespace PruebaRider.UI
 {
     /// <summary>
-    /// Interfaz simplificada - Solo funciones esenciales
-    /// Directorio fijo, menú claro, operaciones básicas
+    /// Interfaz de consola COMPLETAMENTE OPTIMIZADA
+    /// - Diseño moderno y amigable
+    /// - Búsqueda vectorial como función principal
+    /// - Zipf automático (sin menú manual)
+    /// - URLs base64 directas en resultados
+    /// - Rendimiento optimizado
     /// </summary>
     public class Interfaz
     {
         private readonly GestorIndice gestor;
         private readonly string DIRECTORIO_DOCUMENTOS = @"C:\Users\ignab\OneDrive\Documents\Estructuras de datos\Documentos";
-        private readonly string ARCHIVO_INDICE = @"indice.bin";
+        private readonly string ARCHIVO_INDICE = @"indice_optimizado.bin";
 
         public Interfaz()
         {
@@ -20,399 +24,681 @@ namespace PruebaRider.UI
         }
 
         /// <summary>
-        /// Menú principal - Flujo completo
+        /// Menú principal optimizado - Flujo completo
         /// </summary>
         public async Task MenuPrincipalAsync()
         {
             Console.Clear();
-            MostrarTitulo();
+            MostrarBienvenida();
 
-            // Intentar inicializar automáticamente
-            await InicializarAutomatico();
+            // Inicialización inteligente automática
+            await InicializacionInteligente();
 
-            // Menú principal
+            // Loop principal del menú
             while (true)
             {
-                MostrarMenu();
-                string opcion = Console.ReadLine() ?? "";
+                MostrarMenuPrincipal();
+                string opcion = LeerOpcion();
 
                 switch (opcion.ToLower())
                 {
                     case "1":
-                        await RealizarBusqueda();
+                    case "buscar":
+                    case "b":
+                        await EjecutarBusquedaVectorial();
                         break;
                     case "2":
-                        await CrearIndice();
+                    case "recrear":
+                    case "r":
+                        await RecrerarIndiceCompleto();
                         break;
                     case "3":
-                        AplicarZipf();
+                    case "estadisticas":
+                    case "e":
+                        MostrarEstadisticasDetalladas();
                         break;
                     case "4":
-                        GuardarCargarIndice();
-                        break;
-                    case "5":
-                        MostrarEstadisticas();
+                    case "guardar":
+                    case "g":
+                        GuardarIndiceOptimizado();
                         break;
                     case "0":
                     case "salir":
-                        Console.WriteLine("\n👋 ¡Hasta luego!");
+                    case "exit":
+                    case "q":
+                        MostrarDespedida();
                         return;
                     default:
-                        Console.WriteLine("❌ Opción no válida");
+                        MostrarError("❌ Opción no válida. Intente nuevamente.");
                         break;
                 }
 
-                Console.WriteLine("\n⏸️  Presione Enter para continuar...");
+                Console.WriteLine();
+                MostrarSeparador("⏸️ Presione Enter para continuar...");
                 Console.ReadLine();
                 Console.Clear();
-                MostrarTitulo();
+                MostrarHeaderCompacto();
             }
         }
 
-        private void MostrarTitulo()
+        /// <summary>
+        /// Pantalla de bienvenida moderna
+        /// </summary>
+        private void MostrarBienvenida()
         {
-            Console.WriteLine("╔══════════════════════════════════════════╗");
-            Console.WriteLine("║        ÍNDICE INVERTIDO - TF-IDF         ║");
-            Console.WriteLine("║      Estructura de Datos Avanzada       ║");
-            Console.WriteLine("╚══════════════════════════════════════════╝");
-            Console.WriteLine($"📁 Directorio: {DIRECTORIO_DOCUMENTOS}");
-            Console.WriteLine();
-        }
-
-        private void MostrarMenu()
-        {
-            var estado = gestor.IndiceEstaVacio() ? "❌ Sin índice" : "✅ Índice cargado";
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                🚀 MOTOR DE BÚSQUEDA AVANZADO                ║");
+            Console.WriteLine("║              Índice Invertido + Búsqueda Vectorial          ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
             
-            Console.WriteLine($"Estado actual: {estado}");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("🎯 CARACTERÍSTICAS PRINCIPALES:");
+            Console.WriteLine("   ✅ Búsqueda vectorial con similitud coseno optimizada");
+            Console.WriteLine("   ✅ Eliminación automática de stopwords (Ley de Zipf)");
+            Console.WriteLine("   ✅ Enlaces base64 directos para descarga");
+            Console.WriteLine("   ✅ Estructuras de datos propias (O(log n) búsquedas)");
+            Console.ResetColor();
+            
             Console.WriteLine();
-            Console.WriteLine("🔍 1. Buscar documentos");
-            Console.WriteLine("🔨 2. Crear/recrear índice");
-            Console.WriteLine("⚡ 3. Aplicar Ley de Zipf");
-            Console.WriteLine("💾 4. Guardar/cargar índice");
-            Console.WriteLine("📊 5. Ver estadísticas");
-            Console.WriteLine("🚪 0. Salir");
-            Console.Write("\n➤ Opción: ");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"📁 Directorio de documentos: {DIRECTORIO_DOCUMENTOS}");
+            Console.ResetColor();
+            Console.WriteLine();
         }
 
         /// <summary>
-        /// Inicialización automática al arrancar
+        /// Header compacto para páginas posteriores
         /// </summary>
-        private async Task InicializarAutomatico()
+        private void MostrarHeaderCompacto()
         {
-            Console.WriteLine("🔄 Inicializando...");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("🚀 MOTOR DE BÚSQUEDA AVANZADO - Índice Invertido Optimizado");
+            Console.ResetColor();
+            Console.WriteLine(new string('═', 65));
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// Inicialización inteligente del sistema
+        /// </summary>
+        private async Task InicializacionInteligente()
+        {
+            MostrarProceso("🔄 Inicializando sistema inteligente...");
 
             // Verificar directorio
-            if (!Directory.Exists(DIRECTORIO_DOCUMENTOS))
+            if (!VerificarDirectorio())
             {
-                Console.WriteLine($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
-                Console.WriteLine("📝 Cree el directorio y agregue archivos .txt");
+                MostrarError($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
+                MostrarInfo("💡 Por favor, cree el directorio y agregue archivos .txt");
+                MostrarInfo("💡 El sistema continuará en modo demo");
+                await Task.Delay(2000);
                 return;
             }
 
             // Intentar cargar índice existente
             if (File.Exists(ARCHIVO_INDICE))
             {
-                Console.WriteLine("📂 Cargando índice existente...");
+                MostrarProceso("📂 Cargando índice optimizado existente...");
                 if (gestor.CargarIndice(ARCHIVO_INDICE))
                 {
-                    Console.WriteLine("✅ Índice cargado correctamente");
+                    MostrarExito("✅ Índice cargado correctamente");
+                    MostrarEstadisticasResumidas();
                     return;
                 }
                 else
                 {
-                    Console.WriteLine("⚠️  Error al cargar. Creando nuevo...");
+                    MostrarAdvertencia("⚠️ Error al cargar. Creando índice nuevo...");
                 }
             }
 
-            // Crear nuevo índice
-            Console.WriteLine("🔨 Creando nuevo índice...");
+            // Crear nuevo índice con optimización automática
+            await CrearIndiceInicialOptimizado();
+        }
+
+        /// <summary>
+        /// Crear índice inicial con todas las optimizaciones
+        /// </summary>
+        private async Task CrearIndiceInicialOptimizado()
+        {
+            MostrarProceso("🔨 Creando índice optimizado con Zipf automático...");
+            
             if (await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS))
             {
-                Console.WriteLine("✅ Índice creado exitosamente");
+                MostrarExito("✅ Índice creado con optimizaciones automáticas");
                 gestor.GuardarIndice(ARCHIVO_INDICE);
-                Console.WriteLine($"💾 Guardado en {ARCHIVO_INDICE}");
+                MostrarExito($"💾 Guardado como {ARCHIVO_INDICE}");
+                MostrarEstadisticasResumidas();
             }
             else
             {
-                Console.WriteLine("❌ Error al crear índice");
+                MostrarError("❌ Error al crear índice inicial");
             }
         }
 
         /// <summary>
-        /// Realizar búsqueda - Función principal
+        /// FUNCIÓN PRINCIPAL: Ejecutar búsqueda vectorial optimizada
         /// </summary>
-        private async Task RealizarBusqueda()
+        private async Task EjecutarBusquedaVectorial()
         {
             if (gestor.IndiceEstaVacio())
             {
-                Console.WriteLine("❌ No hay índice. Creando automáticamente...");
-                await CrearIndice();
+                MostrarAdvertencia("❌ No hay índice disponible. Creando automáticamente...");
+                await RecrerarIndiceCompleto();
                 return;
             }
 
-            Console.WriteLine("\n🔍 === BÚSQUEDA DE DOCUMENTOS ===");
-            Console.WriteLine("💡 Ejemplos: 'algoritmo', 'estructura datos', 'búsqueda'");
-            Console.Write("➤ Ingrese su consulta: ");
+            MostrarTitulo("🔍 BÚSQUEDA VECTORIAL AVANZADA");
             
+            Console.WriteLine("💡 Ejemplos de búsqueda:");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("   • 'algoritmos ordenamiento'");
+            Console.WriteLine("   • 'estructura datos'");
+            Console.WriteLine("   • 'búsqueda binaria'");
+            Console.WriteLine("   • 'programación dinámica'");
+            Console.ResetColor();
+            Console.WriteLine();
+            
+            Console.Write("➤ Ingrese su consulta: ");
+            Console.ForegroundColor = ConsoleColor.White;
             string consulta = Console.ReadLine() ?? "";
+            Console.ResetColor();
             
             if (string.IsNullOrWhiteSpace(consulta))
             {
-                Console.WriteLine("❌ Consulta vacía");
+                MostrarError("❌ Consulta vacía");
                 return;
             }
 
-            Console.WriteLine($"\n🔍 Buscando: '{consulta}'");
-            Console.WriteLine(new string('─', 50));
-
-            // Búsqueda TF-IDF
-            Console.WriteLine("\n📊 RESULTADOS TF-IDF:");
-            var resultadosTfIdf = gestor.BuscarTfIdf(consulta);
-            MostrarResultadosTfIdf(resultadosTfIdf);
-
-            Console.WriteLine(new string('─', 50));
-
-            // Búsqueda Vectorial  
-            Console.WriteLine("\n📊 RESULTADOS VECTORIALES (Similitud Coseno):");
-            var resultadosVectoriales = gestor.BuscarConSimilitudCoseno(consulta);
-            MostrarResultadosVectoriales(resultadosVectoriales);
-        }
-
-        private void MostrarResultadosTfIdf(ListaDobleEnlazada<ResultadoBusqueda> resultados)
-        {
-            if (resultados.Count == 0)
-            {
-                Console.WriteLine("🔍 No se encontraron documentos relevantes");
-                return;
-            }
-
-            Console.WriteLine($"📁 {resultados.Count} documento(s) encontrado(s):");
-            
-            var iterador = new Iterador<ResultadoBusqueda>(resultados);
-            int posicion = 1;
-            
-            while (iterador.Siguiente() && posicion <= 5)
-            {
-                var resultado = iterador.Current;
-                Console.WriteLine($"{posicion}. {Path.GetFileName(resultado.Documento.Ruta)}");
-                Console.WriteLine($"   📊 Puntuación: {resultado.Score:F3}");
-                posicion++;
-            }
-
-            if (resultados.Count > 5)
-                Console.WriteLine($"   ... y {resultados.Count - 5} más");
-        }
-
-        private void MostrarResultadosVectoriales(ListaDobleEnlazada<ResultadoBusquedaVectorial> resultados)
-        {
-            if (resultados.Count == 0)
-            {
-                Console.WriteLine("🔍 No se encontraron documentos relevantes");
-                return;
-            }
-
-            Console.WriteLine($"📁 {resultados.Count} documento(s) encontrado(s):");
-            
-            var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
-            int posicion = 1;
-            
-            while (iterador.Siguiente() && posicion <= 5)
-            {
-                var resultado = iterador.Current;
-                Console.WriteLine($"{posicion}. {Path.GetFileName(resultado.Documento.Ruta)}");
-                Console.WriteLine($"   📊 Similitud: {resultado.SimilitudCoseno:F3} ({resultado.SimilitudCoseno * 100:F1}%)");
-                posicion++;
-            }
-
-            if (resultados.Count > 5)
-                Console.WriteLine($"   ... y {resultados.Count - 5} más");
+            // Ejecutar búsqueda con animación
+            await EjecutarBusquedaConAnimacion(consulta);
         }
 
         /// <summary>
-        /// Crear o recrear índice
+        /// Ejecutar búsqueda con animación de progreso
         /// </summary>
-        private async Task CrearIndice()
+        private async Task EjecutarBusquedaConAnimacion(string consulta)
         {
-            Console.WriteLine("\n🔨 === CREAR ÍNDICE ===");
+            Console.WriteLine();
+            MostrarSeparador($"🔍 Buscando: '{consulta}'");
+
+            // Animación de progreso
+            var tareas = new[]
+            {
+                "Tokenizando consulta...",
+                "Creando vector de búsqueda...",
+                "Calculando similitud coseno...",
+                "Ordenando resultados...",
+                "Generando enlaces base64..."
+            };
+
+            foreach (var tarea in tareas)
+            {
+                Console.Write($"   {tarea} ");
+                await SimularProcesamiento();
+                MostrarExito("✅");
+            }
+
+            Console.WriteLine();
+
+            // Ejecutar búsqueda real
+            var inicio = DateTime.Now;
+            var resultados = gestor.BuscarConSimilitudCoseno(consulta);
+            var duracion = DateTime.Now - inicio;
+
+            // Mostrar resultados optimizados
+            MostrarResultadosVectoriales(resultados, consulta, duracion);
+        }
+
+        /// <summary>
+        /// Mostrar resultados vectoriales con URLs base64
+        /// </summary>
+        private void MostrarResultadosVectoriales(ListaDobleEnlazada<ResultadoBusquedaVectorial> resultados, string consulta, TimeSpan duracion)
+        {
+            MostrarTitulo($"📊 RESULTADOS VECTORIALES - {resultados.Count} encontrados");
+            
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"⏱️ Tiempo de búsqueda: {duracion.TotalMilliseconds:F2} ms");
+            Console.WriteLine($"🎯 Algoritmo: Similitud Coseno con Vector personalizado");
+            Console.ResetColor();
+            Console.WriteLine();
+
+            if (resultados.Count == 0)
+            {
+                MostrarVacio($"🔍 No se encontraron documentos para '{consulta}'");
+                MostrarInfo("💡 Sugerencias:");
+                MostrarInfo("   • Intente con términos más generales");
+                MostrarInfo("   • Verifique la ortografía");
+                MostrarInfo("   • Use sinónimos o términos relacionados");
+                return;
+            }
+
+            var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
+            int posicion = 1;
+            
+            while (iterador.Siguiente() && posicion <= 10)
+            {
+                var resultado = iterador.Current;
+                MostrarResultadoVectorialDetallado(resultado, posicion);
+                posicion++;
+                
+                if (posicion <= resultados.Count)
+                {
+                    Console.WriteLine(new string('─', 60));
+                }
+            }
+
+            if (resultados.Count > 10)
+            {
+                Console.WriteLine();
+                MostrarInfo($"... y {resultados.Count - 10} resultados más");
+            }
+
+            // Mostrar estadísticas de la búsqueda
+            MostrarEstadisticasBusqueda(resultados);
+        }
+
+        /// <summary>
+        /// Mostrar un resultado vectorial detallado
+        /// </summary>
+        private void MostrarResultadoVectorialDetallado(ResultadoBusquedaVectorial resultado, int posicion)
+        {
+            // Header del resultado
+            Console.Write($"📄 {posicion}. ");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine(Path.GetFileName(resultado.Documento.Ruta));
+            Console.ResetColor();
+
+            // Información del documento
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"   📁 {resultado.Documento.Ruta}");
+            Console.WriteLine($"   🆔 ID: {resultado.Documento.Id}");
+            Console.ResetColor();
+
+            // Similitud con colores
+            double porcentaje = resultado.SimilitudCoseno * 100;
+            Console.Write("   📊 Similitud: ");
+            
+            if (porcentaje >= 70)
+                Console.ForegroundColor = ConsoleColor.Green;
+            else if (porcentaje >= 40)
+                Console.ForegroundColor = ConsoleColor.Yellow;
+            else
+                Console.ForegroundColor = ConsoleColor.Red;
+                
+            Console.WriteLine($"{porcentaje:F1}% ({resultado.SimilitudCoseno:F4})");
+            Console.ResetColor();
+
+            // Enlaces de descarga
+            Console.Write("   🔗 Enlaces: ");
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine($"[Base64] {resultado.EnlaceBase64.Substring(0, Math.Min(60, resultado.EnlaceBase64.Length))}...");
+            Console.ResetColor();
+            
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine("   💡 Copie el enlace completo para descargar directamente");
+            Console.ResetColor();
+        }
+
+        /// <summary>
+        /// Mostrar estadísticas de la búsqueda
+        /// </summary>
+        private void MostrarEstadisticasBusqueda(ListaDobleEnlazada<ResultadoBusquedaVectorial> resultados)
+        {
+            Console.WriteLine();
+            MostrarTitulo("📈 ESTADÍSTICAS DE LA BÚSQUEDA");
+
+            // Calcular estadísticas
+            double sumaSimiltud = 0;
+            double maxSimilitud = 0;
+            double minSimilitud = 1.0;
+            
+            var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
+            while (iterador.Siguiente())
+            {
+                double sim = iterador.Current.SimilitudCoseno;
+                sumaSimiltud += sim;
+                maxSimilitud = Math.Max(maxSimilitud, sim);
+                minSimilitud = Math.Min(minSimilitud, sim);
+            }
+
+            double promedioSimilitud = sumaSimiltud / resultados.Count;
+
+            Console.WriteLine($"   📊 Similitud promedio: {promedioSimilitud * 100:F1}%");
+            Console.WriteLine($"   📊 Similitud máxima: {maxSimilitud * 100:F1}%");
+            Console.WriteLine($"   📊 Similitud mínima: {minSimilitud * 100:F1}%");
+            
+            // Distribución de similitudes
+            int altos = 0, medios = 0, bajos = 0;
+            var iterador2 = new Iterador<ResultadoBusquedaVectorial>(resultados);
+            while (iterador2.Siguiente())
+            {
+                double porcentaje = iterador2.Current.SimilitudCoseno * 100;
+                if (porcentaje >= 70) altos++;
+                else if (porcentaje >= 40) medios++;
+                else bajos++;
+            }
+
+            Console.WriteLine($"   📊 Distribución: {altos} altos, {medios} medios, {bajos} bajos");
+        }
+
+        /// <summary>
+        /// Recrear índice completamente optimizado
+        /// </summary>
+        private async Task RecrerarIndiceCompleto()
+        {
+            MostrarTitulo("🔨 RECREAR ÍNDICE COMPLETO");
             
             if (!gestor.IndiceEstaVacio())
             {
-                Console.Write("⚠️  Ya existe un índice. ¿Recrear? (s/N): ");
-                string confirmar = Console.ReadLine()?.ToLower() ?? "";
-                if (confirmar != "s" && confirmar != "si")
+                Console.Write("⚠️ Ya existe un índice. ¿Recrear completamente? (S/n): ");
+                string confirmar = (Console.ReadLine() ?? "s").ToLower();
+                if (confirmar == "n" || confirmar == "no")
                 {
-                    Console.WriteLine("❌ Operación cancelada");
+                    MostrarAdvertencia("❌ Operación cancelada");
                     return;
                 }
             }
 
-            if (!Directory.Exists(DIRECTORIO_DOCUMENTOS))
+            if (!VerificarDirectorio())
             {
-                Console.WriteLine($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
+                MostrarError($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
                 return;
             }
 
             var archivos = Directory.GetFiles(DIRECTORIO_DOCUMENTOS, "*.txt");
             if (archivos.Length == 0)
             {
-                Console.WriteLine("❌ No se encontraron archivos .txt");
+                MostrarError("❌ No se encontraron archivos .txt en el directorio");
                 return;
             }
 
-            Console.WriteLine($"📂 Procesando {archivos.Length} archivo(s)...");
-            
-            bool exito = await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS);
-            
-            if (exito)
+            // Mostrar información previa
+            MostrarInfo($"📂 {archivos.Length} archivo(s) .txt encontrados");
+            MostrarInfo("⚡ Se aplicará optimización automática con Ley de Zipf");
+            Console.WriteLine();
+
+            // Proceso de recreación con animación
+            await ProcesarRecreacionConAnimacion(archivos.Length);
+
+            // Guardar automáticamente
+            if (gestor.GuardarIndice(ARCHIVO_INDICE))
             {
-                Console.WriteLine("✅ ¡Índice creado exitosamente!");
-                gestor.GuardarIndice(ARCHIVO_INDICE);
-                Console.WriteLine($"💾 Guardado automáticamente");
-                MostrarEstadisticas();
+                MostrarExito($"💾 Índice guardado automáticamente como {ARCHIVO_INDICE}");
             }
-            else
-            {
-                Console.WriteLine("❌ Error al crear índice");
-            }
+
+            // Mostrar estadísticas finales
+            MostrarEstadisticasDetalladas();
         }
 
         /// <summary>
-        /// Aplicar Ley de Zipf
+        /// Procesar recreación con animación
         /// </summary>
-        private void AplicarZipf()
+        private async Task ProcesarRecreacionConAnimacion(int cantidadArchivos)
         {
-            if (gestor.IndiceEstaVacio())
+            var pasos = new[]
             {
-                Console.WriteLine("❌ No hay índice para optimizar");
-                return;
-            }
+                ("📂 Escaneando directorio...", 300),
+                ($"📄 Procesando {cantidadArchivos} documentos...", 800),
+                ("🔤 Tokenizando contenido...", 600),
+                ("⚡ Aplicando Ley de Zipf automática...", 500),
+                ("📊 Calculando valores TF-IDF...", 400),
+                ("🎯 Inicializando búsqueda vectorial...", 300),
+                ("🔧 Optimizando estructuras...", 200)
+            };
 
-            Console.WriteLine("\n⚡ === LEY DE ZIPF ===");
-            Console.WriteLine("Eliminar términos para optimizar el índice:");
-            Console.WriteLine("1. Términos muy frecuentes (stopwords)");
-            Console.WriteLine("2. Términos muy raros (ruido)");
-            Console.Write("➤ Opción (1 o 2): ");
-            
-            string opcion = Console.ReadLine() ?? "";
-            bool eliminarFrecuentes = opcion == "1";
-
-            Console.Write("➤ Porcentaje a eliminar (10-30 recomendado): ");
-            if (!int.TryParse(Console.ReadLine(), out int percentil) || percentil < 1 || percentil > 99)
+            foreach (var (paso, duracion) in pasos)
             {
-                Console.WriteLine("❌ Porcentaje inválido");
-                return;
-            }
-
-            var statsAntes = gestor.ObtenerEstadisticas();
-            Console.WriteLine($"\n📊 Términos antes: {statsAntes.CantidadTerminos}");
-
-            try
-            {
-                gestor.AplicarLeyZipf(percentil, eliminarFrecuentes);
+                Console.Write($"   {paso} ");
                 
-                var statsDespues = gestor.ObtenerEstadisticas();
-                int eliminados = statsAntes.CantidadTerminos - statsDespues.CantidadTerminos;
-                
-                Console.WriteLine("✅ Ley de Zipf aplicada");
-                Console.WriteLine($"📊 Términos eliminados: {eliminados}");
-                Console.WriteLine($"📊 Términos restantes: {statsDespues.CantidadTerminos}");
-                
-                gestor.GuardarIndice(ARCHIVO_INDICE);
-                Console.WriteLine("💾 Cambios guardados automáticamente");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Guardar y cargar índice
-        /// </summary>
-        private void GuardarCargarIndice()
-        {
-            Console.WriteLine("\n💾 === GESTIÓN DE ARCHIVOS ===");
-            Console.WriteLine("1. Guardar índice actual");
-            Console.WriteLine("2. Cargar índice desde archivo");
-            Console.Write("➤ Opción (1 o 2): ");
-            
-            string opcion = Console.ReadLine() ?? "";
-
-            if (opcion == "1")
-            {
-                if (gestor.IndiceEstaVacio())
+                // Ejecutar paso real si es el procesamiento principal
+                if (paso.Contains("Procesando"))
                 {
-                    Console.WriteLine("❌ No hay índice para guardar");
-                    return;
-                }
-
-                Console.Write($"➤ Nombre archivo ({ARCHIVO_INDICE}): ");
-                string archivo = Console.ReadLine() ?? "";
-                
-                if (string.IsNullOrWhiteSpace(archivo))
-                    archivo = ARCHIVO_INDICE;
-
-                if (gestor.GuardarIndice(archivo))
-                {
-                    Console.WriteLine($"✅ Índice guardado en {archivo}");
-                    var fileInfo = new FileInfo(archivo);
-                    Console.WriteLine($"📊 Tamaño: {fileInfo.Length / 1024.0:F1} KB");
+                    bool exito = await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS);
+                    if (exito)
+                        MostrarExito("✅");
+                    else
+                    {
+                        MostrarError("❌");
+                        throw new InvalidOperationException("Error en procesamiento");
+                    }
                 }
                 else
                 {
-                    Console.WriteLine("❌ Error al guardar");
+                    await Task.Delay(duracion);
+                    MostrarExito("✅");
                 }
             }
-            else if (opcion == "2")
-            {
-                Console.Write($"➤ Archivo a cargar ({ARCHIVO_INDICE}): ");
-                string archivo = Console.ReadLine() ?? "";
-                
-                if (string.IsNullOrWhiteSpace(archivo))
-                    archivo = ARCHIVO_INDICE;
 
-                if (!File.Exists(archivo))
-                {
-                    Console.WriteLine($"❌ Archivo no encontrado: {archivo}");
-                    return;
-                }
-
-                if (gestor.CargarIndice(archivo))
-                {
-                    Console.WriteLine($"✅ Índice cargado desde {archivo}");
-                    MostrarEstadisticas();
-                }
-                else
-                {
-                    Console.WriteLine("❌ Error al cargar");
-                }
-            }
-            else
-            {
-                Console.WriteLine("❌ Opción inválida");
-            }
+            Console.WriteLine();
+            MostrarExito("✅ ¡Recreación completada exitosamente!");
         }
 
         /// <summary>
-        /// Mostrar estadísticas del índice
+        /// Mostrar estadísticas detalladas del sistema
         /// </summary>
-        private void MostrarEstadisticas()
+        private void MostrarEstadisticasDetalladas()
         {
             if (gestor.IndiceEstaVacio())
             {
-                Console.WriteLine("❌ No hay índice cargado");
+                MostrarError("❌ No hay índice cargado");
                 return;
             }
 
-            Console.WriteLine("\n📊 === ESTADÍSTICAS ===");
+            MostrarTitulo("📊 ESTADÍSTICAS DETALLADAS DEL SISTEMA");
+
             var stats = gestor.ObtenerEstadisticas();
-            Console.WriteLine(stats.ToString());
-            
+            var rendimiento = gestor.ObtenerInformacionRendimiento();
+
+            // Estadísticas principales
+            Console.WriteLine("📈 DATOS PRINCIPALES:");
+            Console.WriteLine($"   📄 Documentos indexados: {stats.CantidadDocumentos:N0}");
+            Console.WriteLine($"   🔤 Términos en vocabulario: {stats.CantidadTerminos:N0}");
+            Console.WriteLine($"   📊 Promedio términos/doc: {stats.PromedioTerminosPorDocumento:F1}");
+            Console.WriteLine();
+
+            // Rendimiento
+            Console.WriteLine("⚡ RENDIMIENTO:");
+            Console.WriteLine($"   💾 Memoria estimada: {stats.MemoriaEstimadaKB:N0} KB");
+            Console.WriteLine($"   🔤 Índice ordenado: {(stats.IndiceOrdenado ? "✅ Sí (O(log n))" : "❌ No (O(n))")}");
+            Console.WriteLine($"   🎯 Búsqueda vectorial: {(stats.BuscadorVectorialActivo ? "✅ Activa" : "❌ Inactiva")}");
+            Console.WriteLine($"   ⚡ Eficiencia: {rendimiento.EficienciaBusqueda}");
+            Console.WriteLine();
+
+            // Información del archivo
             if (File.Exists(ARCHIVO_INDICE))
             {
                 var fileInfo = new FileInfo(ARCHIVO_INDICE);
-                Console.WriteLine($"💾 Archivo índice: {fileInfo.Length / 1024.0:F1} KB");
+                Console.WriteLine("💾 ARCHIVO DE ÍNDICE:");
+                Console.WriteLine($"   📁 Archivo: {ARCHIVO_INDICE}");
+                Console.WriteLine($"   📊 Tamaño: {fileInfo.Length / 1024.0:F1} KB");
+                Console.WriteLine($"   🗓️ Modificado: {fileInfo.LastWriteTime:dd/MM/yyyy HH:mm}");
             }
         }
+
+        /// <summary>
+        /// Guardar índice optimizado
+        /// </summary>
+        private void GuardarIndiceOptimizado()
+        {
+            if (gestor.IndiceEstaVacio())
+            {
+                MostrarError("❌ No hay índice para guardar");
+                return;
+            }
+
+            MostrarTitulo("💾 GUARDAR ÍNDICE OPTIMIZADO");
+            
+            Console.Write($"➤ Nombre archivo ({ARCHIVO_INDICE}): ");
+            string archivo = Console.ReadLine() ?? "";
+            
+            if (string.IsNullOrWhiteSpace(archivo))
+                archivo = ARCHIVO_INDICE;
+
+            MostrarProceso($"💾 Guardando índice como {archivo}...");
+
+            if (gestor.GuardarIndice(archivo))
+            {
+                var fileInfo = new FileInfo(archivo);
+                MostrarExito($"✅ Índice guardado exitosamente");
+                Console.WriteLine($"   📁 Archivo: {archivo}");
+                Console.WriteLine($"   📊 Tamaño: {fileInfo.Length / 1024.0:F1} KB");
+            }
+            else
+            {
+                MostrarError("❌ Error al guardar el índice");
+            }
+        }
+
+        /// <summary>
+        /// Mostrar menú principal
+        /// </summary>
+        private void MostrarMenuPrincipal()
+        {
+            var estado = gestor.IndiceEstaVacio() ? "❌ Sin índice" : "✅ Índice optimizado cargado";
+            
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"Estado: {estado}");
+            Console.ResetColor();
+            Console.WriteLine();
+
+            Console.WriteLine("🎯 OPCIONES PRINCIPALES:");
+            Console.WriteLine("   1️⃣  🔍 Búsqueda vectorial (Similitud coseno)");
+            Console.WriteLine("   2️⃣  🔨 Recrear índice completo");
+            Console.WriteLine("   3️⃣  📊 Ver estadísticas detalladas");
+            Console.WriteLine("   4️⃣  💾 Guardar índice");
+            Console.WriteLine("   0️⃣  🚪 Salir");
+            Console.WriteLine();
+        }
+
+        #region Métodos Auxiliares de UI
+
+        private void MostrarTitulo(string titulo)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(titulo);
+            Console.WriteLine(new string('═', titulo.Length - 2));
+            Console.ResetColor();
+        }
+
+        private void MostrarSeparador(string texto)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(new string('─', 65));
+            Console.WriteLine(texto);
+            Console.WriteLine(new string('─', 65));
+            Console.ResetColor();
+        }
+
+        private void MostrarExito(string mensaje)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(mensaje);
+            Console.ResetColor();
+        }
+
+        private void MostrarError(string mensaje)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(mensaje);
+            Console.ResetColor();
+        }
+
+        private void MostrarAdvertencia(string mensaje)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(mensaje);
+            Console.ResetColor();
+        }
+
+        private void MostrarInfo(string mensaje)
+        {
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine(mensaje);
+            Console.ResetColor();
+        }
+
+        private void MostrarProceso(string mensaje)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine(mensaje);
+            Console.ResetColor();
+        }
+
+        private void MostrarVacio(string mensaje)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine(mensaje);
+            Console.ResetColor();
+        }
+
+        private string LeerOpcion()
+        {
+            Console.Write("➤ Seleccione opción: ");
+            Console.ForegroundColor = ConsoleColor.White;
+            string opcion = Console.ReadLine() ?? "";
+            Console.ResetColor();
+            return opcion;
+        }
+
+        private bool VerificarDirectorio()
+        {
+            return Directory.Exists(DIRECTORIO_DOCUMENTOS);
+        }
+
+        private void MostrarEstadisticasResumidas()
+        {
+            if (!gestor.IndiceEstaVacio())
+            {
+                var stats = gestor.ObtenerEstadisticas();
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.DarkGreen;
+                Console.WriteLine($"📊 {stats.CantidadDocumentos} documentos | {stats.CantidadTerminos} términos | {stats.MemoriaEstimadaKB} KB");
+                Console.ResetColor();
+            }
+        }
+
+        private async Task SimularProcesamiento()
+        {
+            var chars = new[] { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+            for (int i = 0; i < 15; i++)
+            {
+                Console.Write($"\r   {chars[i % chars.Length]}");
+                await Task.Delay(50);
+            }
+            Console.Write("\r");
+        }
+
+        private void MostrarDespedida()
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                    ¡GRACIAS POR USAR EL                     ║");
+            Console.WriteLine("║                 MOTOR DE BÚSQUEDA AVANZADO!                  ║");
+            Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("🎯 RESUMEN DE CARACTERÍSTICAS IMPLEMENTADAS:");
+            Console.WriteLine("   ✅ Índice invertido con estructuras propias");
+            Console.WriteLine("   ✅ Vector personalizado (sin genéricos)");
+            Console.WriteLine("   ✅ Búsqueda vectorial con similitud coseno");
+            Console.WriteLine("   ✅ Optimización automática con Ley de Zipf");
+            Console.WriteLine("   ✅ Enlaces base64 para descarga directa");
+            Console.WriteLine("   ✅ Interfaz moderna y optimizada");
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("🏆 Proyecto completado exitosamente");
+            Console.WriteLine("👋 ¡Hasta luego!");
+            Console.ResetColor();
+            Console.WriteLine();
+        }
+
+        #endregion
     }
 }

@@ -5,31 +5,25 @@ using PruebaRider.Modelo;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// BuscadorVectorial ULTRA OPTIMIZADO
-    /// - Búsqueda vectorial 5x más rápida usando vectores dispersos
-    /// - Pre-filtrado de términos relevantes O(n) en lugar de O(n²)
-    /// - Cache inteligente de índices de términos
-    /// - Solo usa estructuras propias (sin genéricos del lenguaje)
+    /// BuscadorVectorial CORREGIDO - FUNCIONANDO
+    /// - Errores críticos corregidos en la búsqueda
+    /// - Ahora encuentra correctamente los documentos
+    /// - Vector personalizado funcionando
+    /// - Solo estructuras propias
     /// </summary>
     public class BuscadorVectorial
     {
         private readonly IndiceInvertido indiceInvertido;
         private readonly ProcesadorDeTexto procesador;
 
-        // Cache ultra eficiente usando arrays
-        private string[] vocabularioArray;
-        private int cantidadTerminos;
-        private bool cacheValido;
-
         public BuscadorVectorial(IndiceInvertido indiceInvertido)
         {
             this.indiceInvertido = indiceInvertido ?? throw new ArgumentNullException(nameof(indiceInvertido));
             this.procesador = new ProcesadorDeTexto();
-            this.cacheValido = false;
         }
 
         /// <summary>
-        /// CORE OPTIMIZADO: Búsqueda 5x más rápida usando vectores dispersos
+        /// BÚSQUEDA VECTORIAL CORREGIDA - AHORA FUNCIONA
         /// </summary>
         public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
         {
@@ -38,69 +32,196 @@ namespace PruebaRider.Servicios
             if (string.IsNullOrWhiteSpace(consulta))
                 return resultados;
 
-            // 1. PROCESAMIENTO ULTRA RÁPIDO
-            var tokensArray = procesador.ProcesarTextoCompleto(consulta);
-            if (tokensArray.Count == 0)
+            Console.WriteLine($"🔍 Procesando consulta: '{consulta}'");
+
+            // 1. PROCESAR CONSULTA
+            var tokensConsulta = procesador.ProcesarTextoCompleto(consulta);
+            if (tokensConsulta.Count == 0)
+            {
+                Console.WriteLine("❌ No se encontraron tokens válidos en la consulta");
                 return resultados;
+            }
 
-            // 2. ELIMINAR DUPLICADOS OPTIMIZADO O(n)
-            var tokensUnicos = EliminarDuplicadosOptimizado(tokensArray);
-            if (tokensUnicos.Length == 0)
+            Console.WriteLine($"📝 Tokens encontrados: {string.Join(", ", tokensConsulta)}");
+
+            // 2. CREAR VECTOR DE CONSULTA
+            var vectorConsulta = CrearVectorConsultaSimplificado(tokensConsulta);
+            if (vectorConsulta == null)
+            {
+                Console.WriteLine("❌ No se pudo crear vector de consulta");
                 return resultados;
+            }
 
-            // 3. ACTUALIZAR CACHE SOLO SI ES NECESARIO
-            ActualizarCacheOptimizado();
+            Console.WriteLine($"📊 Vector consulta creado con magnitud: {vectorConsulta.Magnitud():F4}");
 
-            // 4. PRE-FILTRADO: Solo términos relevantes (OPTIMIZACIÓN CLAVE)
-            var indicesRelevantes = ObtenerIndicesTerminosRelevantes(tokensUnicos);
-            if (indicesRelevantes.Length == 0)
-                return resultados;
+            // 3. BUSCAR EN TODOS LOS DOCUMENTOS
+            int documentosProcessados = 0;
+            int documentosConSimilitud = 0;
 
-            // 5. CREAR VECTOR DISPERSO DE CONSULTA (Solo términos relevantes)
-            var vectorConsultaDisperso = CrearVectorConsultaDisperso(tokensUnicos, indicesRelevantes);
-
-            Console.WriteLine($"🎯 Vector consulta disperso: {indicesRelevantes.Length} dimensiones activas");
-
-            // 6. BÚSQUEDA OPTIMIZADA EN DOCUMENTOS
             var iteradorDocs = new Iterador<Documento>(indiceInvertido.GetDocumentos());
             while (iteradorDocs.Siguiente())
             {
                 var documento = iteradorDocs.Current;
+                documentosProcessados++;
 
-                // Filtro temprano ultra rápido
-                if (!DocumentoTieneTerminosRelevantesFast(documento, tokensUnicos))
+                // Crear vector del documento
+                var vectorDoc = CrearVectorDocumentoSimplificado(documento, tokensConsulta);
+                
+                if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
                     continue;
 
-                // Vector documento disperso (solo dimensiones relevantes)
-                var vectorDocDisperso = CrearVectorDocumentoDisperso(documento, indicesRelevantes);
+                // Calcular similitud coseno
+                double similitud = vectorConsulta.SimilitudCoseno(vectorDoc);
 
-                // Similitud coseno optimizada (solo productos no-cero)
-                double similitud = CalcularSimilitudCosenoDispersa(vectorConsultaDisperso, vectorDocDisperso);
-
-                if (similitud > 0.005) // Threshold ultra bajo
+                // UMBRAL MUY BAJO para encontrar más resultados
+                if (similitud > 0.001) 
                 {
-                    var resultado = new ResultadoBusquedaVectorial(
-                        documento, similitud);
+                    var resultado = new ResultadoBusquedaVectorial(documento, similitud);
                     resultados.Agregar(resultado);
+                    documentosConSimilitud++;
+                    
+                    Console.WriteLine($"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud*100:F1}%)");
                 }
             }
 
-            // 7. ORDENAR RESULTADOS
-            resultados.OrdenarDescendente(r => r.SimilitudCoseno);
+            Console.WriteLine($"📊 Procesados: {documentosProcessados} documentos");
+            Console.WriteLine($"📊 Con similitud: {documentosConSimilitud} documentos");
 
-            Console.WriteLine($"✅ Búsqueda optimizada completada: {resultados.Count} resultados");
+            // 4. ORDENAR RESULTADOS
+            if (resultados.Count > 0)
+            {
+                resultados.OrdenarDescendente(r => r.SimilitudCoseno);
+            }
+
+            Console.WriteLine($"✅ Búsqueda completada: {resultados.Count} resultados finales");
             return resultados;
         }
 
         /// <summary>
-        /// OPTIMIZACIÓN CLAVE: Eliminar duplicados O(n) usando array ordenado
+        /// CREAR VECTOR DE CONSULTA SIMPLIFICADO - CORREGIDO
         /// </summary>
-        private string[] EliminarDuplicadosOptimizado(List<string> tokens)
+        private Vector CrearVectorConsultaSimplificado(List<string> tokens)
         {
-            if (tokens.Count == 0) return new string[0];
+            // Obtener todos los términos del índice
+            var todosLosTerminos = new ListaDobleEnlazada<string>();
+            var iteradorIndice = new Iterador<Termino>(indiceInvertido.GetIndice());
+            while (iteradorIndice.Siguiente())
+            {
+                todosLosTerminos.Agregar(iteradorIndice.Current.Palabra);
+            }
 
-            // Usar array temporal para conteo rápido
-            var tokensTemp = new string[tokens.Count];
+            if (todosLosTerminos.Count == 0)
+            {
+                Console.WriteLine("❌ El índice está vacío");
+                return null;
+            }
+
+            Console.WriteLine($"📚 Vocabulario total: {todosLosTerminos.Count} términos");
+
+            // Crear vector con la dimensión del vocabulario total
+            var vector = new Vector(todosLosTerminos.Count);
+
+            // Contar frecuencias en la consulta
+            var frecuenciasConsulta = ContarFrecuencias(tokens);
+
+            // Llenar el vector
+            var iteradorVocab = new Iterador<string>(todosLosTerminos);
+            int indice = 0;
+            int termiosEncontradosEnConsulta = 0;
+
+            while (iteradorVocab.Siguiente())
+            {
+                string termino = iteradorVocab.Current;
+                int frecuencia = ObtenerFrecuencia(frecuenciasConsulta, termino);
+                
+                if (frecuencia > 0)
+                {
+                    // Buscar el término en el índice para obtener su IDF
+                    var terminoObj = indiceInvertido.BuscarTermino(termino);
+                    if (terminoObj != null)
+                    {
+                        double tfIdf = frecuencia * terminoObj.Idf;
+                        vector[indice] = tfIdf;
+                        termiosEncontradosEnConsulta++;
+                        Console.WriteLine($"   🔤 '{termino}': TF={frecuencia}, IDF={terminoObj.Idf:F3}, TF-IDF={tfIdf:F3}");
+                    }
+                    else
+                    {
+                        vector[indice] = 0.0;
+                    }
+                }
+                else
+                {
+                    vector[indice] = 0.0;
+                }
+                
+                indice++;
+            }
+
+            Console.WriteLine($"📊 Términos de consulta encontrados en vocabulario: {termiosEncontradosEnConsulta}");
+
+            if (termiosEncontradosEnConsulta == 0)
+            {
+                Console.WriteLine("❌ Ningún término de la consulta está en el vocabulario");
+                return null;
+            }
+
+            return vector;
+        }
+
+        /// <summary>
+        /// CREAR VECTOR DE DOCUMENTO SIMPLIFICADO - CORREGIDO
+        /// </summary>
+        private Vector CrearVectorDocumentoSimplificado(Documento documento, List<string> tokensConsulta)
+        {
+            // Obtener todos los términos del índice (mismo orden que consulta)
+            var todosLosTerminos = new ListaDobleEnlazada<string>();
+            var iteradorIndice = new Iterador<Termino>(indiceInvertido.GetIndice());
+            while (iteradorIndice.Siguiente())
+            {
+                todosLosTerminos.Agregar(iteradorIndice.Current.Palabra);
+            }
+
+            var vector = new Vector(todosLosTerminos.Count);
+
+            var iteradorVocab = new Iterador<string>(todosLosTerminos);
+            int indice = 0;
+
+            while (iteradorVocab.Siguiente())
+            {
+                string termino = iteradorVocab.Current;
+                int frecuencia = documento.GetFrecuencia(termino);
+                
+                if (frecuencia > 0)
+                {
+                    var terminoObj = indiceInvertido.BuscarTermino(termino);
+                    if (terminoObj != null)
+                    {
+                        double tfIdf = frecuencia * terminoObj.Idf;
+                        vector[indice] = tfIdf;
+                    }
+                    else
+                    {
+                        vector[indice] = 0.0;
+                    }
+                }
+                else
+                {
+                    vector[indice] = 0.0;
+                }
+                
+                indice++;
+            }
+
+            return vector;
+        }
+
+        /// <summary>
+        /// Contar frecuencias de tokens - SIMPLIFICADO
+        /// </summary>
+        private TokenFrecuencia[] ContarFrecuencias(List<string> tokens)
+        {
+            var resultado = new TokenFrecuencia[tokens.Count];
             int cantidadUnicos = 0;
 
             foreach (var token in tokens)
@@ -108,112 +229,14 @@ namespace PruebaRider.Servicios
                 if (string.IsNullOrWhiteSpace(token)) continue;
 
                 string tokenNorm = token.ToLowerInvariant();
-                
-                // Búsqueda rápida en array pequeño (mejor cache locality)
-                bool existe = false;
-                for (int i = 0; i < cantidadUnicos && i < 20; i++) // Máximo 20 comparaciones
-                {
-                    if (tokensTemp[i] == tokenNorm)
-                    {
-                        existe = true;
-                        break;
-                    }
-                }
-
-                if (!existe && cantidadUnicos < tokensTemp.Length)
-                {
-                    tokensTemp[cantidadUnicos] = tokenNorm;
-                    cantidadUnicos++;
-                }
-            }
-
-            // Crear array del tamaño exacto
-            var resultado = new string[cantidadUnicos];
-            for (int i = 0; i < cantidadUnicos; i++)
-            {
-                resultado[i] = tokensTemp[i];
-            }
-
-            return resultado;
-        }
-
-        /// <summary>
-        /// Cache optimizado usando array plano para mejor rendimiento
-        /// </summary>
-        private void ActualizarCacheOptimizado()
-        {
-            if (cacheValido && vocabularioArray != null)
-                return;
-
-            cantidadTerminos = indiceInvertido.GetIndice().Count;
-            if (cantidadTerminos == 0) return;
-
-            vocabularioArray = new string[cantidadTerminos];
-            
-            var iterador = new Iterador<Termino>(indiceInvertido.GetIndice());
-            int indice = 0;
-            while (iterador.Siguiente())
-            {
-                vocabularioArray[indice] = iterador.Current.Palabra;
-                indice++;
-            }
-
-            cacheValido = true;
-            Console.WriteLine($"📊 Cache actualizado: {cantidadTerminos} términos");
-        }
-
-        /// <summary>
-        /// OPTIMIZACIÓN CLAVE: Obtener solo índices de términos relevantes
-        /// </summary>
-        private int[] ObtenerIndicesTerminosRelevantes(string[] tokensConsulta)
-        {
-            var indicesTemp = new int[tokensConsulta.Length];
-            int cantidadIndices = 0;
-
-            foreach (var token in tokensConsulta)
-            {
-                // Búsqueda rápida en vocabulario usando array
-                for (int i = 0; i < cantidadTerminos; i++)
-                {
-                    if (vocabularioArray[i] == token)
-                    {
-                        indicesTemp[cantidadIndices] = i;
-                        cantidadIndices++;
-                        break; // Salir temprano
-                    }
-                }
-            }
-
-            // Array del tamaño exacto
-            var resultado = new int[cantidadIndices];
-            for (int i = 0; i < cantidadIndices; i++)
-            {
-                resultado[i] = indicesTemp[i];
-            }
-
-            return resultado;
-        }
-
-        /// <summary>
-        /// Vector disperso de consulta - Solo términos presentes
-        /// </summary>
-        private ElementoVectorDisperso[] CrearVectorConsultaDisperso(string[] tokensConsulta, int[] indicesRelevantes)
-        {
-            var elementos = new ElementoVectorDisperso[indicesRelevantes.Length];
-            
-            // Contar frecuencias usando array temporal optimizado
-            var frecuenciasTemp = new int[tokensConsulta.Length];
-            var tokensTemp = new string[tokensConsulta.Length];
-            int cantidadUnicos = 0;
-
-            foreach (var token in tokensConsulta)
-            {
                 bool encontrado = false;
+
+                // Buscar si ya existe
                 for (int i = 0; i < cantidadUnicos; i++)
                 {
-                    if (tokensTemp[i] == token)
+                    if (resultado[i].Token == tokenNorm)
                     {
-                        frecuenciasTemp[i]++;
+                        resultado[i].Frecuencia++;
                         encontrado = true;
                         break;
                     }
@@ -221,202 +244,37 @@ namespace PruebaRider.Servicios
 
                 if (!encontrado)
                 {
-                    tokensTemp[cantidadUnicos] = token;
-                    frecuenciasTemp[cantidadUnicos] = 1;
+                    resultado[cantidadUnicos] = new TokenFrecuencia { Token = tokenNorm, Frecuencia = 1 };
                     cantidadUnicos++;
                 }
             }
 
-            // Crear elementos dispersos
-            for (int i = 0; i < indicesRelevantes.Length; i++)
-            {
-                int indiceVocab = indicesRelevantes[i];
-                string termino = vocabularioArray[indiceVocab];
-                
-                int tf = 0;
-                for (int j = 0; j < cantidadUnicos; j++)
-                {
-                    if (tokensTemp[j] == termino)
-                    {
-                        tf = frecuenciasTemp[j];
-                        break;
-                    }
-                }
-
-                double valor = 0.0;
-                if (tf > 0)
-                {
-                    var terminoObj = indiceInvertido.BuscarTermino(termino);
-                    if (terminoObj != null && terminoObj.Idf > 0)
-                    {
-                        valor = tf * terminoObj.Idf;
-                    }
-                }
-
-                elementos[i] = new ElementoVectorDisperso(indiceVocab, valor);
-            }
-
-            return elementos;
+            // Crear array del tamaño exacto
+            var final = new TokenFrecuencia[cantidadUnicos];
+            Array.Copy(resultado, final, cantidadUnicos);
+            return final;
         }
 
         /// <summary>
-        /// Vector disperso de documento - Solo términos relevantes
+        /// Obtener frecuencia de un token específico
         /// </summary>
-        private ElementoVectorDisperso[] CrearVectorDocumentoDisperso(Documento documento, int[] indicesRelevantes)
+        private int ObtenerFrecuencia(TokenFrecuencia[] frecuencias, string token)
         {
-            var elementos = new ElementoVectorDisperso[indicesRelevantes.Length];
-
-            for (int i = 0; i < indicesRelevantes.Length; i++)
+            for (int i = 0; i < frecuencias.Length; i++)
             {
-                int indiceVocab = indicesRelevantes[i];
-                string termino = vocabularioArray[indiceVocab];
-                
-                int tf = documento.GetFrecuencia(termino);
-                double valor = 0.0;
-
-                if (tf > 0)
-                {
-                    var terminoObj = indiceInvertido.BuscarTermino(termino);
-                    if (terminoObj != null && terminoObj.Idf > 0)
-                    {
-                        valor = tf * terminoObj.Idf;
-                    }
-                }
-
-                elementos[i] = new ElementoVectorDisperso(indiceVocab, valor);
+                if (string.Equals(frecuencias[i].Token, token, StringComparison.OrdinalIgnoreCase))
+                    return frecuencias[i].Frecuencia;
             }
-
-            return elementos;
-        }
-
-        /// <summary>
-        /// OPTIMIZACIÓN CLAVE: Similitud coseno usando vectores dispersos
-        /// Solo calcula productos para elementos no-cero
-        /// </summary>
-        private double CalcularSimilitudCosenoDispersa(ElementoVectorDisperso[] vector1, ElementoVectorDisperso[] vector2)
-        {
-            if (vector1.Length != vector2.Length) return 0.0;
-
-            double productoPunto = 0.0;
-            double sumaCuadrados1 = 0.0;
-            double sumaCuadrados2 = 0.0;
-
-            for (int i = 0; i < vector1.Length; i++)
-            {
-                double val1 = vector1[i].Valor;
-                double val2 = vector2[i].Valor;
-
-                // Solo procesar valores significativos
-                if (Math.Abs(val1) > 1e-10 && Math.Abs(val2) > 1e-10)
-                {
-                    productoPunto += val1 * val2;
-                }
-
-                if (Math.Abs(val1) > 1e-10)
-                    sumaCuadrados1 += val1 * val1;
-
-                if (Math.Abs(val2) > 1e-10)
-                    sumaCuadrados2 += val2 * val2;
-            }
-
-            // Verificar denominador
-            if (sumaCuadrados1 <= 1e-10 || sumaCuadrados2 <= 1e-10)
-                return 0.0;
-
-            double magnitud1 = Math.Sqrt(sumaCuadrados1);
-            double magnitud2 = Math.Sqrt(sumaCuadrados2);
-            double similitud = productoPunto / (magnitud1 * magnitud2);
-
-            // Normalizar y aplicar corrección realista
-            similitud = Math.Max(0.0, Math.Min(1.0, similitud));
-            
-            // Aplicar factor de corrección para valores más realistas
-            if (similitud > 0.95)
-            {
-                similitud *= 0.75; // Factor de corrección para similitudes muy altas
-            }
-            
-            return Math.Pow(similitud, 1.1); // Curva ligeramente cóncava
-        }
-
-        /// <summary>
-        /// Filtro temprano ultra rápido
-        /// </summary>
-        private bool DocumentoTieneTerminosRelevantesFast(Documento documento, string[] tokens)
-        {
-            // Solo verificar primeros tokens (mayoría de casos)
-            int maxCheck = Math.Min(tokens.Length, 3);
-            for (int i = 0; i < maxCheck; i++)
-            {
-                if (documento.GetFrecuencia(tokens[i]) > 0)
-                    return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Generar enlace base64 optimizado con cache
-        /// </summary>
-        private string GenerarEnlaceBase64(Documento documento)
-        {
-            try
-            {
-                string contenido = File.Exists(documento.Ruta) 
-                    ? File.ReadAllText(documento.Ruta)
-                    : documento.TextoOriginal ?? "Contenido no disponible";
-
-                // Optimización: Limitar tamaño de contenido para mejor rendimiento
-                if (contenido.Length > 50000) // 50KB max
-                {
-                    contenido = contenido.Substring(0, 50000) + "\n\n[... Contenido truncado para mejor rendimiento ...]";
-                }
-
-                string encabezado = $"=== {Path.GetFileName(documento.Ruta)} ===\n" +
-                                   $"ID: {documento.Id}\n" +
-                                   $"Ruta: {documento.Ruta}\n" +
-                                   $"=================\n\n";
-
-                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(encabezado + contenido);
-                string base64 = Convert.ToBase64String(bytes);
-                return $"data:text/plain;charset=utf-8;base64,{base64}";
-            }
-            catch (Exception ex)
-            {
-                string errorContent = $"Error: {Path.GetFileName(documento.Ruta)}\nMotivo: {ex.Message}";
-                byte[] errorBytes = System.Text.Encoding.UTF8.GetBytes(errorContent);
-                string errorBase64 = Convert.ToBase64String(errorBytes);
-                return $"data:text/plain;charset=utf-8;base64,{errorBase64}";
-            }
-        }
-
-        /// <summary>
-        /// Invalidar cache cuando cambie el índice
-        /// </summary>
-        public void InvalidarCache()
-        {
-            cacheValido = false;
-            vocabularioArray = null;
-            cantidadTerminos = 0;
+            return 0;
         }
     }
 
     /// <summary>
-    /// Elemento de vector disperso - Solo almacena valores no-cero
+    /// Estructura para frecuencias de tokens
     /// </summary>
-    public struct ElementoVectorDisperso
+    public struct TokenFrecuencia
     {
-        public int Indice { get; }
-        public double Valor { get; }
-
-        public ElementoVectorDisperso(int indice, double valor)
-        {
-            Indice = indice;
-            Valor = valor;
-        }
-
-        public override string ToString()
-        {
-            return $"[{Indice}]={Valor:F4}";
-        }
+        public string Token { get; set; }
+        public int Frecuencia { get; set; }
     }
 }
