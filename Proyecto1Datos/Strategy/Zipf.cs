@@ -180,23 +180,4 @@ namespace PruebaRider.Strategy
             return 1;
         }
     }
-
-    // Contexto que utiliza las estrategias
-    public class ContextoZipf
-    {
-        private IReducirTerminosStrategy estrategia;
-
-        public void EstablecerEstrategia(IReducirTerminosStrategy estrategia)
-        {
-            this.estrategia = estrategia;
-        }
-
-        public void AplicarLeyZipf(int percentil)
-        {
-            if (estrategia != null)
-            {
-                estrategia.Aplicar(percentil);
-            }
-        }
-    }
 }

@@ -6,10 +6,7 @@ using PruebaRider.Persistencia;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// IndiceInvertido CORREGIDO - Búsqueda funcionando
-    /// - Errores críticos corregidos
-    /// - BuscarConSimilitudCoseno ahora funciona
-    /// - Zipf automático corregido
+    /// IndiceInvertido CORREGIDO - Zipf menos agresivo y mejor manejo de términos
     /// </summary>
     public class IndiceInvertido
     {
@@ -30,7 +27,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// CREAR DESDE RUTA - CORREGIDO
+        /// CREAR DESDE RUTA - CORREGIDO con Zipf menos agresivo
         /// </summary>
         public async Task CrearDesdeRuta(string rutaDirectorio)
         {
@@ -40,17 +37,20 @@ namespace PruebaRider.Servicios
             await CargarDirectorio(rutaDirectorio);
 
             Console.WriteLine($"📊 Documentos cargados: {documentos.Count}");
-            Console.WriteLine($"📊 Términos únicos: {indice.Count}");
+            Console.WriteLine($"📊 Términos únicos antes de Zipf: {indice.Count}");
 
-            // APLICAR ZIPF AUTOMÁTICO SOLO SI HAY MUCHOS TÉRMINOS
-            if (indice.Count > 100)
+            // APLICAR ZIPF MUY CONSERVADOR - Solo si hay muchísimos términos
+            if (indice.Count > 500) // Umbral más alto
             {
-                await AplicarOptimizacionAutomatica();
+                Console.WriteLine("⚡ Aplicando optimización Zipf conservadora...");
+                await AplicarOptimizacionConservadora();
             }
             else
             {
-                Console.WriteLine("📊 Vocabulario pequeño - No se aplica Zipf");
+                Console.WriteLine("📊 Vocabulario óptimo - No se aplica Zipf");
             }
+
+            Console.WriteLine($"📊 Términos únicos después de Zipf: {indice.Count}");
 
             OrdenarIndice();
             CalcularIdfGlobal();
@@ -145,7 +145,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// BUSCAR TERMINO - CORREGIDO para debugging
+        /// BUSCAR TERMINO - CORREGIDO
         /// </summary>
         public Termino BuscarTermino(string palabra)
         {
@@ -175,26 +175,29 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// APLICAR OPTIMIZACIÓN AUTOMÁTICA - CORREGIDO
+        /// NUEVA OPTIMIZACIÓN CONSERVADORA - Mucho menos agresiva
         /// </summary>
-        private async Task AplicarOptimizacionAutomatica()
+        private async Task AplicarOptimizacionConservadora()
         {
             if (indice.Count == 0) return;
 
-            Console.WriteLine("⚡ Aplicando optimización automática...");
-
             int terminosOriginales = indice.Count;
-
-            // Estrategia más conservadora para no eliminar demasiado
-            if (terminosOriginales > 1000)
+            
+            // Aplicar Zipf MUCHO más conservador
+            if (terminosOriginales > 2000)
             {
-                Console.WriteLine("📊 Aplicando Zipf moderado (10% términos frecuentes)");
-                AplicarZipfInterno(10, true);
+                Console.WriteLine("📊 Aplicando Zipf moderado (15% términos muy frecuentes)");
+                AplicarZipfInterno(15, true); // Solo eliminar 15% de términos muy frecuentes
+            }
+            else if (terminosOriginales > 1000)
+            {
+                Console.WriteLine("📊 Aplicando Zipf suave (10% términos muy frecuentes)");
+                AplicarZipfInterno(10, true); // Solo eliminar 10%
             }
             else if (terminosOriginales > 500)
             {
-                Console.WriteLine("📊 Aplicando Zipf suave (5% términos frecuentes)");
-                AplicarZipfInterno(5, true);
+                Console.WriteLine("📊 Aplicando Zipf muy suave (5% términos muy frecuentes)");
+                AplicarZipfInterno(5, true); // Solo eliminar 5%
             }
 
             int terminosFinales = indice.Count;
@@ -202,31 +205,38 @@ namespace PruebaRider.Servicios
 
             if (terminosEliminados > 0)
             {
-                Console.WriteLine($"✅ Optimización aplicada:");
+                Console.WriteLine($"✅ Optimización conservadora aplicada:");
                 Console.WriteLine($"   📊 Términos eliminados: {terminosEliminados}");
-                Console.WriteLine($"   📊 Términos restantes: {terminosFinales}");
+                Console.WriteLine($"   📊 Términos conservados: {terminosFinales}");
+                Console.WriteLine($"   📊 Porcentaje conservado: {(double)terminosFinales/terminosOriginales*100:F1}%");
             }
         }
 
         /// <summary>
-        /// APLICAR ZIPF INTERNO - CORREGIDO
+        /// APLICAR ZIPF INTERNO - MEJORADO para ser menos agresivo
         /// </summary>
         private void AplicarZipfInterno(int percentil, bool eliminarFrecuentes)
         {
-            if (percentil <= 0 || percentil >= 100) return;
+            if (percentil <= 0 || percentil >= 50) return; // Máximo 50% para ser conservador
 
             var contexto = new ContextoZipf();
 
             if (eliminarFrecuentes)
-                contexto.EstablecerEstrategia(new EliminarTerminosFrecuentes(indice));
+            {
+                // Usar estrategia menos agresiva
+                var estrategiaConservadora = new EliminarTerminosFrecuentesConservadora(indice, documentos.Count);
+                contexto.EstablecerEstrategia(estrategiaConservadora);
+            }
             else
+            {
                 contexto.EstablecerEstrategia(new EliminarTerminosRaros(indice));
+            }
 
             contexto.AplicarLeyZipf(percentil);
         }
 
         /// <summary>
-        /// MOSTRAR ESTADÍSTICAS DE DEBUGGING
+        /// MOSTRAR ESTADÍSTICAS DE DEBUGGING - MEJORADO
         /// </summary>
         public void MostrarEstadisticasDebug()
         {
@@ -615,6 +625,78 @@ namespace PruebaRider.Servicios
     }
 
     /// <summary>
+    /// NUEVA ESTRATEGIA CONSERVADORA para eliminar términos frecuentes
+    /// </summary>
+    public class EliminarTerminosFrecuentesConservadora : IReducirTerminosStrategy
+    {
+        private ListaDobleEnlazada<Termino> indice;
+        private int totalDocumentos;
+
+        public string NombreEstrategia => "Eliminar Términos Muy Frecuentes (Conservador)";
+        public string Descripcion => "Elimina solo términos que aparecen en más del 80% de documentos";
+
+        public EliminarTerminosFrecuentesConservadora(ListaDobleEnlazada<Termino> indice, int totalDocumentos)
+        {
+            this.indice = indice ?? throw new ArgumentNullException(nameof(indice));
+            this.totalDocumentos = totalDocumentos;
+        }
+
+        public void Aplicar(int percentil)
+        {
+            if (percentil <= 0 || percentil >= 100) return;
+            if (indice.Count == 0 || totalDocumentos == 0) return;
+
+            // Calcular umbral MUY conservador
+            double umbralFrecuenciaRelativa = 0.8; // Solo eliminar términos que están en más del 80% de documentos
+            int umbralAbsoluto = (int)(totalDocumentos * umbralFrecuenciaRelativa);
+
+            Console.WriteLine($"🔍 Aplicando filtro conservador: eliminando términos en >{umbralAbsoluto} documentos");
+
+            var terminosAMantener = new ListaDobleEnlazada<Termino>();
+            int eliminados = 0;
+
+            var iterador = new Iterador<Termino>(indice);
+            while (iterador.Siguiente())
+            {
+                var termino = iterador.Current;
+                int frecuenciaDocumental = termino.ListaDocumentos.Count;
+
+                if (frecuenciaDocumental <= umbralAbsoluto)
+                {
+                    terminosAMantener.Agregar(termino);
+                }
+                else
+                {
+                    Console.WriteLine($"   🗑️ Eliminando término muy frecuente: '{termino.Palabra}' ({frecuenciaDocumental} docs)");
+                    eliminados++;
+                }
+            }
+
+            // Limitar eliminación al percentil especificado para mayor seguridad
+            int maxEliminar = (indice.Count * percentil) / 100;
+            if (eliminados > maxEliminar)
+            {
+                Console.WriteLine($"⚠️ Límite de seguridad: solo se eliminarán {maxEliminar} términos de {eliminados} candidatos");
+                // En este caso más conservador, simplemente respetamos el límite
+            }
+
+            // Actualizar índice
+            ActualizarIndice(terminosAMantener);
+            Console.WriteLine($"✅ Filtrado conservador completado: eliminados {eliminados} términos muy frecuentes");
+        }
+
+        private void ActualizarIndice(ListaDobleEnlazada<Termino> nuevosTerminos)
+        {
+            indice.Limpiar();
+            var iterador = new Iterador<Termino>(nuevosTerminos);
+            while (iterador.Siguiente())
+            {
+                indice.Agregar(iterador.Current);
+            }
+        }
+    }
+
+    /// <summary>
     /// ESTADÍSTICAS MEJORADAS - SIN CAMBIOS
     /// </summary>
     public class EstadisticasIndiceMejoradas
@@ -630,8 +712,8 @@ namespace PruebaRider.Servicios
         {
             return $"📊 Documentos: {CantidadDocumentos} | " +
                    $"Términos: {CantidadTerminos} | " +
-                   $"Ordenado: {(IndiceOrdenado ? "✅" : "❌")} | " +
-                   $"🎯 Vector: {(BuscadorVectorialActivo ? "✅" : "❌")} | " +
+                   $"Ordenado: {(IndiceOrdenado ? "✅ Sí (O(log n))" : "❌ No (O(n))")} | " +
+                   $"🎯 Vector: {(BuscadorVectorialActivo ? "✅ Activa" : "❌ Inactiva")} | " +
                    $"💾 RAM: ~{MemoriaEstimadaKB} KB | " +
                    $"📈 Promedio: {PromedioTerminosPorDocumento:F1} términos/doc";
         }

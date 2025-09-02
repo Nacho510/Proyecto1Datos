@@ -7,9 +7,9 @@ namespace PruebaRider.Strategy
     public interface IReducirTerminosStrategy
     {
         void Aplicar(int percentil);
-        
+
         string NombreEstrategia { get; }
-        
+
         string Descripcion { get; }
     }
 
@@ -18,7 +18,9 @@ namespace PruebaRider.Strategy
         private ListaDobleEnlazada<Termino> indice;
 
         public string NombreEstrategia => "Eliminar Términos Frecuentes";
-        public string Descripcion => "Elimina términos que aparecen en muchos documentos (considerados muy comunes o stopwords)";
+
+        public string Descripcion =>
+            "Elimina términos que aparecen en muchos documentos (considerados muy comunes o stopwords)";
 
         public EliminarTerminosFrecuentes(ListaDobleEnlazada<Termino> indice)
         {
@@ -27,7 +29,7 @@ namespace PruebaRider.Strategy
 
         public void Aplicar(int percentil)
         {
-            if (percentil <= 0 || percentil >= 100) 
+            if (percentil <= 0 || percentil >= 100)
             {
                 throw new ArgumentException("El percentil debe estar entre 1 y 99");
             }
@@ -36,15 +38,15 @@ namespace PruebaRider.Strategy
 
             // Crear lista de frecuencias de documentos para cada término
             var frecuenciasDocumentos = new ListaDobleEnlazada<FrecuenciaTermino>();
-            
+
             var iterador = new Iterador<Termino>(indice);
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                frecuenciasDocumentos.Agregar(new FrecuenciaTermino 
-                { 
-                    Termino = termino, 
-                    FrecuenciaDocumental = termino.ListaDocumentos.Count 
+                frecuenciasDocumentos.Agregar(new FrecuenciaTermino
+                {
+                    Termino = termino,
+                    FrecuenciaDocumental = termino.ListaDocumentos.Count
                 });
             }
 
@@ -66,11 +68,128 @@ namespace PruebaRider.Strategy
                 {
                     terminosAMantener.Agregar(iteradorFrec.Current.Termino);
                 }
+
                 contador++;
             }
 
             // Actualizar el índice con los términos filtrados
             ActualizarIndice(terminosAMantener);
+        }
+
+        private void ActualizarIndice(ListaDobleEnlazada<Termino> nuevosTerminos)
+        {
+            indice.Limpiar();
+            var iterador = new Iterador<Termino>(nuevosTerminos);
+            while (iterador.Siguiente())
+            {
+                indice.Agregar(iterador.Current);
+            }
+        }
+    }
+
+    // NUEVA ESTRATEGIA CONSERVADORA - Mucho menos agresiva
+    public class EliminarTerminosFrecuentesConservadora : IReducirTerminosStrategy
+    {
+        private ListaDobleEnlazada<Termino> indice;
+        private int totalDocumentos;
+
+        public string NombreEstrategia => "Eliminar Términos Muy Frecuentes (Conservador)";
+        public string Descripcion => "Elimina solo términos que aparecen en más del 80% de documentos";
+
+        public EliminarTerminosFrecuentesConservadora(ListaDobleEnlazada<Termino> indice, int totalDocumentos)
+        {
+            this.indice = indice ?? throw new ArgumentNullException(nameof(indice));
+            this.totalDocumentos = totalDocumentos;
+        }
+
+        public void Aplicar(int percentil)
+        {
+            if (percentil <= 0 || percentil >= 100) return;
+            if (indice.Count == 0 || totalDocumentos == 0) return;
+
+            // Calcular umbral MUY conservador - Solo eliminar términos extremadamente frecuentes
+            double umbralFrecuenciaRelativa = 0.85; // Solo eliminar términos que están en más del 85% de documentos
+            int umbralAbsoluto = (int)(totalDocumentos * umbralFrecuenciaRelativa);
+
+            Console.WriteLine(
+                $"🔍 Aplicando filtro conservador: eliminando términos en >{umbralAbsoluto} de {totalDocumentos} documentos");
+
+            var terminosAMantener = new ListaDobleEnlazada<Termino>();
+            int eliminados = 0;
+            var terminosEliminados = new ListaDobleEnlazada<string>();
+
+            var iterador = new Iterador<Termino>(indice);
+            while (iterador.Siguiente())
+            {
+                var termino = iterador.Current;
+                int frecuenciaDocumental = termino.ListaDocumentos.Count;
+
+                if (frecuenciaDocumental <= umbralAbsoluto)
+                {
+                    terminosAMantener.Agregar(termino);
+                }
+                else
+                {
+                    terminosEliminados.Agregar(termino.Palabra);
+                    eliminados++;
+                }
+            }
+
+            // Límite de seguridad adicional
+            int maxEliminar = (indice.Count * Math.Min(percentil, 20)) / 100; // Nunca más del 20%
+            if (eliminados > maxEliminar)
+            {
+                Console.WriteLine(
+                    $"⚠️ Límite de seguridad activado: manteniendo eliminación en {maxEliminar} términos máximo");
+                // Rehacer con límite más estricto
+                terminosAMantener.Limpiar();
+                eliminados = 0;
+
+                // Ordenar términos por frecuencia y eliminar solo los más frecuentes
+                var terminosOrdenados = new ListaDobleEnlazada<Termino>();
+                var iterador2 = new Iterador<Termino>(indice);
+                while (iterador2.Siguiente())
+                {
+                    terminosOrdenados.Agregar(iterador2.Current);
+                }
+
+                terminosOrdenados.OrdenarDescendente(t => t.ListaDocumentos.Count);
+
+                var iteradorOrdenado = new Iterador<Termino>(terminosOrdenados);
+                int contador = 0;
+                while (iteradorOrdenado.Siguiente())
+                {
+                    if (contador < maxEliminar)
+                    {
+                        eliminados++;
+                        Console.WriteLine(
+                            $"   🗑️ Eliminando: '{iteradorOrdenado.Current.Palabra}' ({iteradorOrdenado.Current.ListaDocumentos.Count} docs)");
+                    }
+                    else
+                    {
+                        terminosAMantener.Agregar(iteradorOrdenado.Current);
+                    }
+
+                    contador++;
+                }
+            }
+            else
+            {
+                // Mostrar términos eliminados
+                var iteradorEliminados = new Iterador<string>(terminosEliminados);
+                while (iteradorEliminados.Siguiente())
+                {
+                    Console.WriteLine($"   🗑️ Eliminando término muy frecuente: '{iteradorEliminados.Current}'");
+                }
+            }
+
+            // Actualizar índice
+            ActualizarIndice(terminosAMantener);
+            Console.WriteLine($"✅ Filtrado conservador completado:");
+            Console.WriteLine($"   📊 Términos eliminados: {eliminados}");
+            Console.WriteLine($"   📊 Términos conservados: {terminosAMantener.Count}");
+            Console.WriteLine(
+                $"   📊 Porcentaje conservado: {(double)terminosAMantener.Count / (eliminados + terminosAMantener.Count) * 100:F1}%");
         }
 
         private void ActualizarIndice(ListaDobleEnlazada<Termino> nuevosTerminos)
@@ -90,7 +209,9 @@ namespace PruebaRider.Strategy
         private ListaDobleEnlazada<Termino> indice;
 
         public string NombreEstrategia => "Eliminar Términos Raros";
-        public string Descripcion => "Elimina términos que aparecen en pocos documentos (considerados ruido o términos irrelevantes)";
+
+        public string Descripcion =>
+            "Elimina términos que aparecen en pocos documentos (considerados ruido o términos irrelevantes)";
 
         public EliminarTerminosRaros(ListaDobleEnlazada<Termino> indice)
         {
@@ -108,15 +229,15 @@ namespace PruebaRider.Strategy
 
             // Crear lista de frecuencias de documentos para cada término
             var frecuenciasDocumentos = new ListaDobleEnlazada<FrecuenciaTermino>();
-            
+
             var iterador = new Iterador<Termino>(indice);
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                frecuenciasDocumentos.Agregar(new FrecuenciaTermino 
-                { 
-                    Termino = termino, 
-                    FrecuenciaDocumental = termino.ListaDocumentos.Count 
+                frecuenciasDocumentos.Agregar(new FrecuenciaTermino
+                {
+                    Termino = termino,
+                    FrecuenciaDocumental = termino.ListaDocumentos.Count
                 });
             }
 
@@ -138,6 +259,7 @@ namespace PruebaRider.Strategy
                 {
                     terminosAMantener.Agregar(iteradorFrec.Current.Termino);
                 }
+
                 contador++;
             }
 
@@ -165,6 +287,7 @@ namespace PruebaRider.Strategy
                         siguiente.Data = temp;
                         huboIntercambio = true;
                     }
+
                     actual = actual.Sig;
                 }
             } while (huboIntercambio);
@@ -232,12 +355,12 @@ namespace PruebaRider.Strategy
         {
             var copia = new ListaDobleEnlazada<Termino>();
             var iterador = new Iterador<Termino>(indice);
-            
+
             while (iterador.Siguiente())
             {
                 copia.Agregar(iterador.Current);
             }
-            
+
             return copia;
         }
 
@@ -245,7 +368,7 @@ namespace PruebaRider.Strategy
         {
             indice.Limpiar();
             var iterador = new Iterador<Termino>(nuevoIndice);
-            
+
             while (iterador.Siguiente())
             {
                 indice.Agregar(iterador.Current);
@@ -261,7 +384,7 @@ namespace PruebaRider.Strategy
     }
 
     // Contexto que utiliza las estrategias (patrón Strategy)
-   /* public class ContextoZipf
+    public class ContextoZipf
     {
         private IReducirTerminosStrategy estrategia;
 
@@ -292,7 +415,7 @@ namespace PruebaRider.Strategy
 
             return $"{estrategia.NombreEstrategia}: {estrategia.Descripcion}";
         }
-    }*/
+    }
 
     // Factory para crear estrategias
     public static class FabricaEstrategias
@@ -301,10 +424,12 @@ namespace PruebaRider.Strategy
         {
             EliminarFrecuentes,
             EliminarRaros,
-            Hibrido
+            Hibrido,
+            FrecuentesConservador // NUEVA OPCIÓN
         }
 
-        public static IReducirTerminosStrategy CrearEstrategia(TipoEstrategia tipo, ListaDobleEnlazada<Termino> indice)
+        public static IReducirTerminosStrategy CrearEstrategia(TipoEstrategia tipo, ListaDobleEnlazada<Termino> indice,
+            int totalDocumentos = 0)
         {
             if (indice == null)
                 throw new ArgumentNullException(nameof(indice));
@@ -313,13 +438,16 @@ namespace PruebaRider.Strategy
             {
                 case TipoEstrategia.EliminarFrecuentes:
                     return new EliminarTerminosFrecuentes(indice);
-                
+
                 case TipoEstrategia.EliminarRaros:
                     return new EliminarTerminosRaros(indice);
-                
+
                 case TipoEstrategia.Hibrido:
                     return new EliminarTerminosHibridoStrategy(indice);
-                
+
+                case TipoEstrategia.FrecuentesConservador:
+                    return new EliminarTerminosFrecuentesConservadora(indice, totalDocumentos);
+
                 default:
                     throw new ArgumentException("Tipo de estrategia no válido");
             }
@@ -331,7 +459,8 @@ namespace PruebaRider.Strategy
             {
                 "Eliminar Términos Frecuentes - Remueve stopwords y términos muy comunes",
                 "Eliminar Términos Raros - Remueve términos poco frecuentes o ruido",
-                "Estrategia Híbrida - Combina ambos enfoques para rango medio óptimo"
+                "Estrategia Híbrida - Combina ambos enfoques para rango medio óptimo",
+                "Frecuentes Conservador - Elimina solo términos extremadamente frecuentes (RECOMENDADO)"
             };
         }
     }
