@@ -48,104 +48,7 @@
             count++;
             estaOrdenada = false; // Asumir que se desordena al agregar arbitrariamente
         }
-
-        /// <summary>
-        /// NUEVO: Eliminar elemento específico - O(n)
-        /// </summary>
-        public bool Eliminar(T item)
-        {
-            if (root == null) return false;
-
-            var current = root;
-            do
-            {
-                if (EqualityComparer<T>.Default.Equals(current.Data, item))
-                {
-                    EliminarNodo(current);
-                    return true;
-                }
-
-                current = current.Sig;
-            } while (current != root);
-
-            return false;
-        }
-
-        /// <summary>
-        /// Inserción manteniendo orden - O(n) pero garantiza O(log n) en búsquedas futuras
-        /// Trade-off: inserción más lenta por búsquedas consistentemente rápidas
-        /// </summary>
-        public void AgregarOrdenado(T item, Func<T, T, int> comparador)
-        {
-            if (root == null)
-            {
-                Agregar(item);
-                estaOrdenada = true;
-                return;
-            }
-
-            var newNode = new NodoDoble<T>(item);
-
-            // Buscar posición correcta - O(n) pero necesario para mantener orden
-            var current = root;
-            do
-            {
-                if (comparador(item, current.Data) <= 0)
-                {
-                    // Insertar antes de current
-                    InsertarAntesDe(newNode, current);
-
-                    if (current == root)
-                        root = newNode;
-
-                    count++;
-                    estaOrdenada = true;
-                    return;
-                }
-
-                current = current.Sig;
-            } while (current != root);
-
-            // Insertar al final si es el mayor elemento
-            InsertarAlFinal(newNode);
-            count++;
-            estaOrdenada = true;
-        }
-
-        public bool Existe(T item, Func<T, T, int> comparador = null)
-        {
-            if (root == null) return false;
-
-            // Si tiene comparador y está ordenada, usar búsqueda binaria para listas grandes
-            if (comparador != null && estaOrdenada && count > 10)
-            {
-                var resultado = BuscarBinario(item, comparador);
-                return !EqualityComparer<T>.Default.Equals(resultado, default(T));
-            }
-
-            return ExisteBusquedaLineal(item, comparador);
-        }
-
-        public T BuscarBinario(T valorBuscado, Func<T, T, int> comparador)
-        {
-            if (!estaOrdenada)
-                throw new InvalidOperationException("La lista debe estar ordenada para búsqueda binaria");
-
-            if (count == 0) return default(T);
-
-            // Para listas muy pequeñas, la búsqueda lineal es más eficiente
-            if (count <= 5)
-                return BusquedaLineal(valorBuscado, comparador);
-
-            // Conversión a array para acceso O(1) por índice
-            T[] elementos = new T[count];
-            CopiarA(elementos, 0);
-
-            // Búsqueda binaria clásica
-            return BusquedaBinariaEnArray(elementos, valorBuscado, comparador);
-        }
-
-
+        
         public void EliminarNodo(NodoDoble<T> nodo)
         {
             if (nodo == null || count == 0) return;
@@ -190,30 +93,7 @@
 
             estaOrdenada = true;
         }
-
-        /// <summary>
-        /// NUEVO: Ordenar con comparador personalizado
-        /// </summary>
-        public void OrdenarCon(Func<T, T, int> comparador)
-        {
-            if (count < 2)
-            {
-                estaOrdenada = true;
-                return;
-            }
-
-            if (count <= 20)
-            {
-                BubbleSortConComparador(comparador);
-            }
-            else
-            {
-                OrdenarConArraySortComparador(comparador);
-            }
-
-            estaOrdenada = true;
-        }
-
+        
         public void CopiarA(T[] array, int arrayIndex)
         {
             if (array == null)

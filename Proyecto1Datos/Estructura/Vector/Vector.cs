@@ -10,7 +10,7 @@
     {
         private double[] valores;
         private const double EPSILON = 1e-12;
-        
+
         public int Dimension => valores.Length;
 
         // Constructor para similitud coseno (solo números)
@@ -18,21 +18,10 @@
         {
             if (dimension <= 0)
                 throw new ArgumentException("La dimensión debe ser mayor a 0", nameof(dimension));
-                
+
             valores = new double[dimension];
         }
 
-        public Vector(double[] valores)
-        {
-            if (valores == null)
-                throw new ArgumentNullException(nameof(valores));
-                
-            if (valores.Length == 0)
-                throw new ArgumentException("El array de valores no puede estar vacío", nameof(valores));
-
-            this.valores = new double[valores.Length];
-            Array.Copy(valores, this.valores, valores.Length);
-        }
 
         // Indexer para acceso a elementos
         public double this[int index]
@@ -47,7 +36,7 @@
             {
                 if (index < 0 || index >= valores.Length)
                     throw new IndexOutOfRangeException($"Índice {index} fuera de rango [0, {valores.Length - 1}]");
-                    
+
                 if (double.IsNaN(value) || double.IsInfinity(value))
                 {
                     valores[index] = 0.0;
@@ -70,24 +59,24 @@
         {
             if (v1 == null || v2 == null)
                 throw new ArgumentNullException("Los vectores no pueden ser nulos");
-                
+
             if (v1.Dimension != v2.Dimension)
                 throw new ArgumentException(
                     $"Los vectores deben tener las mismas dimensiones. V1: {v1.Dimension}, V2: {v2.Dimension}");
 
             double productoPunto = 0.0;
-            
+
             for (int i = 0; i < v1.Dimension; i++)
             {
                 double val1 = v1.valores[i];
                 double val2 = v2.valores[i];
-                
+
                 if (Math.Abs(val1) > EPSILON && Math.Abs(val2) > EPSILON)
                 {
                     productoPunto += val1 * val2;
                 }
             }
-            
+
             return productoPunto;
         }
 
@@ -97,7 +86,7 @@
         public double Magnitud()
         {
             double sumaCuadrados = 0.0;
-            
+
             for (int i = 0; i < valores.Length; i++)
             {
                 double valor = valores[i];
@@ -106,15 +95,15 @@
                     sumaCuadrados += valor * valor;
                 }
             }
-            
+
             if (sumaCuadrados <= EPSILON)
                 return 0.0;
-            
+
             double magnitud = Math.Sqrt(sumaCuadrados);
-            
+
             if (double.IsNaN(magnitud) || double.IsInfinity(magnitud))
                 return 0.0;
-                
+
             return magnitud;
         }
 
@@ -125,28 +114,28 @@
         {
             if (other == null)
                 throw new ArgumentNullException(nameof(other));
-                
+
             if (this.Dimension != other.Dimension)
                 throw new ArgumentException("Los vectores deben tener las mismas dimensiones");
-            
+
             // Calcular producto punto
             double productoPunto = this * other;
-            
+
             // Calcular magnitudes
             double magnitud1 = this.Magnitud();
             double magnitud2 = other.Magnitud();
-            
+
             // Verificar casos especiales
             if (magnitud1 <= EPSILON || magnitud2 <= EPSILON)
                 return 0.0;
-            
+
             // Calcular similitud coseno básica
             double similitud = productoPunto / (magnitud1 * magnitud2);
-            
+
             // Validar resultado
             if (double.IsNaN(similitud) || double.IsInfinity(similitud))
                 return 0.0;
-            
+
             return Math.Max(0.0, Math.Min(1.0, similitud));
         }
 
@@ -160,32 +149,8 @@
                 if (Math.Abs(valores[i]) > EPSILON)
                     return true;
             }
+
             return false;
-        }
-
-        public double[] ToArray()
-        {
-            var resultado = new double[valores.Length];
-            Array.Copy(valores, resultado, valores.Length);
-            return resultado;
-        }
-
-        public override string ToString()
-        {
-            if (valores.Length == 0)
-                return "Vector[]";
-            
-            if (valores.Length <= 5)
-            {
-                var valoresStr = string.Join(", ", valores.Select(v => v.ToString("F4")));
-                return $"Vector[{valoresStr}]";
-            }
-            else
-            {
-                var primeros = valores.Take(2).Select(v => v.ToString("F4"));
-                var ultimos = valores.Skip(valores.Length - 1).Select(v => v.ToString("F4"));
-                return $"Vector[{string.Join(", ", primeros)}, ..., {string.Join(", ", ultimos)}] (dim: {valores.Length}, mag: {Magnitud():F4})";
-            }
         }
     }
 
@@ -198,7 +163,7 @@
         private int capacidad;
         private int tamaño;
         private bool estaOrdenado;
-        
+
         private const int CAPACIDAD_INICIAL = 100;
         private const double FACTOR_CRECIMIENTO = 2.0;
 
@@ -250,7 +215,7 @@
                 // Para otros tipos, usar comparador genérico
                 Array.Sort(elementos, 0, tamaño);
             }
-            
+
             estaOrdenado = true;
         }
 
@@ -285,7 +250,7 @@
         private void CountingSortPorPosicion(string[] strings, int posicion)
         {
             const int ALFABETO_SIZE = 256;
-            
+
             int[] count = new int[ALFABETO_SIZE];
             string[] output = new string[tamaño];
 
@@ -320,7 +285,7 @@
         {
             if (str == null || posicion >= str.Length)
                 return 0;
-            
+
             return (int)str[posicion];
         }
 
@@ -396,50 +361,46 @@
         {
             int nuevaCapacidad = (int)(capacidad * FACTOR_CRECIMIENTO);
             T[] nuevoArray = new T[nuevaCapacidad];
-            
+
             Array.Copy(elementos, nuevoArray, tamaño);
-            
+
             elementos = nuevoArray;
             capacidad = nuevaCapacidad;
         }
 
-        public override string ToString()
+        /// <summary>
+        /// Iterador para VectorOrdenado
+        /// </summary>
+        public class IteradorVectorOrdenado<T> where T : IComparable<T>
         {
-            return $"VectorOrdenado[{tamaño}/{capacidad}, Ordenado: {estaOrdenado}]";
-        }
-    }
+            private readonly VectorOrdenado<T> vector;
+            private int posicionActual;
 
-    /// <summary>
-    /// Iterador para VectorOrdenado
-    /// </summary>
-    public class IteradorVectorOrdenado<T> where T : IComparable<T>
-    {
-        private readonly VectorOrdenado<T> vector;
-        private int posicionActual;
-
-        public IteradorVectorOrdenado(VectorOrdenado<T> vector)
-        {
-            this.vector = vector ?? throw new ArgumentNullException(nameof(vector));
-            this.posicionActual = -1;
-        }
-
-        public T Current { get; private set; }
-
-        public bool Siguiente()
-        {
-            posicionActual++;
-            if (posicionActual < vector.Count)
+            public IteradorVectorOrdenado(VectorOrdenado<T> vector)
             {
-                Current = vector[posicionActual];
-                return true;
+                this.vector = vector ?? throw new ArgumentNullException(nameof(vector));
+                this.posicionActual = -1;
             }
-            return false;
-        }
 
-        public void Reiniciar()
-        {
-            posicionActual = -1;
-            Current = default(T);
+            public T Current { get; private set; }
+
+            public bool Siguiente()
+            {
+                posicionActual++;
+                if (posicionActual < vector.Count)
+                {
+                    Current = vector[posicionActual];
+                    return true;
+                }
+
+                return false;
+            }
+
+            public void Limpiar()
+            {
+                posicionActual = -1;
+                Current = default(T);
+            }
         }
     }
 }

@@ -109,34 +109,7 @@ namespace PruebaRider.Modelo
             }
             return 0.0;
         }
-
-        /// <summary>
-        /// Obtener frecuencia TF para un documento específico
-        /// </summary>
-        public int ObtenerFrecuenciaTf(int documentoId)
-        {
-            var iterador = new Iterador<DocumentoFrecuencia>(documentos);
-            while (iterador.Siguiente())
-            {
-                if (iterador.Current.Documento.Id == documentoId)
-                    return iterador.Current.FrecuenciaTf;
-            }
-            return 0;
-        }
-
-        /// <summary>
-        /// Verificar si el término aparece en un documento
-        /// </summary>
-        public bool ApareceEnDocumento(int documentoId)
-        {
-            var iterador = new Iterador<DocumentoFrecuencia>(documentos);
-            while (iterador.Siguiente())
-            {
-                if (iterador.Current.Documento.Id == documentoId)
-                    return true;
-            }
-            return false;
-        }
+        
 
         /// <summary>
         /// Crear vector TF-IDF para todos los documentos del corpus
@@ -181,22 +154,6 @@ namespace PruebaRider.Modelo
             totalApariciones = 0;
         }
 
-        public override bool Equals(object obj)
-        {
-            if (obj is Termino otro)
-                return string.Equals(palabra, otro.palabra, StringComparison.OrdinalIgnoreCase);
-            return false;
-        }
-
-        public override int GetHashCode()
-        {
-            return palabra.GetHashCode();
-        }
-
-        public override string ToString()
-        {
-            return $"{palabra} (docs: {documentos.Count}, IDF: {idf:F3}, apariciones: {totalApariciones})";
-        }
     }
 
     /// <summary>
@@ -214,10 +171,6 @@ namespace PruebaRider.Modelo
             FrecuenciaTf = frecuenciaTf;
             TfIdf = tfIdf;
         }
-
-        public override string ToString()
-        {
-            return $"Doc{Documento.Id}: TF={FrecuenciaTf}, TF-IDF={TfIdf:F3}";
-        }
+        
     }
 }
