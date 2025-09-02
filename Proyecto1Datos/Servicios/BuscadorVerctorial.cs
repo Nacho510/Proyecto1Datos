@@ -1,6 +1,7 @@
 ﻿using PruebaRider.Estructura.Nodo;
 using PruebaRider.Estructura.Vector;
 using PruebaRider.Modelo;
+using PruebaRider.Servicios;
 
 namespace PruebaRider.Servicios
 {
@@ -61,7 +62,7 @@ namespace PruebaRider.Servicios
 
                 // Crear vector TF-IDF del documento
                 var vectorDoc = CrearVectorDocumento(documento);
-                
+
                 if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
                     continue;
 
@@ -73,8 +74,9 @@ namespace PruebaRider.Servicios
                     var resultado = new ResultadoBusquedaVectorial(documento, similitud);
                     resultados.Agregar(resultado);
                     conSimilitud++;
-                    
-                    Console.WriteLine($"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
+
+                    Console.WriteLine(
+                        $"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
                 }
             }
 
@@ -97,7 +99,7 @@ namespace PruebaRider.Servicios
             // Procesar consulta
             var procesador = new ProcesadorDeTexto();
             var tokens = procesador.ProcesarTextoCompleto(consulta);
-            
+
             if (tokens.Count == 0)
                 return null;
 
@@ -117,22 +119,23 @@ namespace PruebaRider.Servicios
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                
+
                 // Buscar frecuencia del término en la consulta
                 int frecuenciaEnConsulta = ObtenerFrecuencia(frecuenciasConsulta, termino.Palabra);
-                
+
                 if (frecuenciaEnConsulta > 0)
                 {
                     // TF-IDF para consulta: TF * IDF
                     double tfIdf = frecuenciaEnConsulta * termino.Idf;
                     vector[posicion] = tfIdf;
-                    Console.WriteLine($"   🔤 '{termino.Palabra}': TF={frecuenciaEnConsulta}, IDF={termino.Idf:F3}, TF-IDF={tfIdf:F3}");
+                    Console.WriteLine(
+                        $"   🔤 '{termino.Palabra}': TF={frecuenciaEnConsulta}, IDF={termino.Idf:F3}, TF-IDF={tfIdf:F3}");
                 }
                 else
                 {
                     vector[posicion] = 0.0;
                 }
-                
+
                 posicion++;
             }
 
@@ -155,11 +158,11 @@ namespace PruebaRider.Servicios
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                
+
                 // Obtener TF-IDF del término para este documento
                 double tfIdf = termino.ObtenerTfIdf(documento.Id);
                 vector[posicion] = tfIdf;
-                
+
                 posicion++;
             }
 
@@ -194,10 +197,10 @@ namespace PruebaRider.Servicios
 
                 if (!encontrado)
                 {
-                    conteos[cantidadUnicos] = new TokenConteo 
-                    { 
-                        Token = tokenNorm, 
-                        Frecuencia = 1 
+                    conteos[cantidadUnicos] = new TokenConteo
+                    {
+                        Token = tokenNorm,
+                        Frecuencia = 1
                     };
                     cantidadUnicos++;
                 }
@@ -219,6 +222,7 @@ namespace PruebaRider.Servicios
                 if (string.Equals(conteos[i].Token, token, StringComparison.OrdinalIgnoreCase))
                     return conteos[i].Frecuencia;
             }
+
             return 0;
         }
 
@@ -229,49 +233,6 @@ namespace PruebaRider.Servicios
         {
             public string Token { get; set; }
             public int Frecuencia { get; set; }
-        }
-    }
-
-    /// <summary>
-    /// Resultado de búsqueda vectorial con enlaces base64
-    /// </summary>
-    public class ResultadoBusquedaVectorial
-    {
-        public Documento Documento { get; set; }
-        public double SimilitudCoseno { get; set; }
-        public string EnlaceBase64 { get; private set; }
-
-        public ResultadoBusquedaVectorial(Documento documento, double similitudCoseno)
-        {
-            Documento = documento ?? throw new ArgumentNullException(nameof(documento));
-            SimilitudCoseno = Math.Max(0.0, Math.Min(1.0, similitudCoseno));
-            EnlaceBase64 = GenerarEnlaceBase64();
-        }
-
-        private string GenerarEnlaceBase64()
-        {
-            try
-            {
-                string contenido = File.Exists(Documento.Ruta) 
-                    ? File.ReadAllText(Documento.Ruta)
-                    : Documento.TextoOriginal ?? "Contenido no disponible";
-                
-                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(contenido);
-                string base64 = Convert.ToBase64String(bytes);
-                return $"data:text/plain;base64,{base64}";
-            }
-            catch (Exception)
-            {
-                byte[] errorBytes = System.Text.Encoding.UTF8.GetBytes(
-                    $"Error al cargar: {Path.GetFileName(Documento.Ruta)}");
-                string errorBase64 = Convert.ToBase64String(errorBytes);
-                return $"data:text/plain;base64,{errorBase64}";
-            }
-        }
-
-        public override string ToString()
-        {
-            return $"📄 {Path.GetFileName(Documento.Ruta)} | {SimilitudCoseno * 100:F1}% | 🔗 Base64";
         }
     }
 }

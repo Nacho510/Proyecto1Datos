@@ -1,16 +1,18 @@
-﻿namespace PruebaRider.Servicios
+﻿using PruebaRider.Estructura.Nodo;
+
+namespace PruebaRider.Servicios
 {
     /// <summary>
     /// Gestor de índice reestructurado
     /// - Patrón Singleton
-    /// - Usa el nuevo índice con VectorOrdenado y RadixSort
+    /// - Usa el nuevo índice con Vector y RadixSort
     /// - Enfocado en simplicidad y eficiencia
     /// </summary>
     public sealed class GestorIndice
     {
         private static GestorIndice instancia = null;
         private static readonly object lockObject = new object();
-        
+
         private IndiceInvertido indice;
         private BuscadorVectorial buscador;
         private string rutaIndiceActual;
@@ -34,6 +36,7 @@
                         instancia = new GestorIndice();
                 }
             }
+
             return instancia;
         }
 
@@ -44,19 +47,19 @@
         {
             try
             {
-                Console.WriteLine("🎯 Creando índice con VectorOrdenado + RadixSort...");
-                
+                Console.WriteLine("🎯 Creando índice con Vector + RadixSort...");
+
                 await indice.CrearDesdeRuta(rutaDirectorio);
                 rutaIndiceActual = rutaDirectorio;
-                
+
                 // Inicializar buscador vectorial
                 buscador = new BuscadorVectorial(indice);
-                
+
                 Console.WriteLine("✅ Índice creado exitosamente:");
                 Console.WriteLine("   🎯 Vector ordenado con RadixSort: ✅");
                 Console.WriteLine("   🔍 Búsqueda vectorial: ✅");
                 Console.WriteLine("   📊 Similitud coseno: ✅");
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -128,10 +131,10 @@
 
                 Console.WriteLine("🔄 Actualizando índice...");
                 await indice.ActualizarIndice(ruta);
-                
+
                 // Recrear buscador para usar el índice actualizado
                 buscador = new BuscadorVectorial(indice);
-                
+
                 Console.WriteLine("✅ Índice actualizado - RadixSort aplicado automáticamente");
                 return true;
             }
@@ -170,10 +173,10 @@
             {
                 Console.WriteLine("📂 Cargando índice...");
                 indice.CargarDesdeArchivoBinario(rutaArchivo);
-                
+
                 // Inicializar buscador después de cargar
                 buscador = new BuscadorVectorial(indice);
-                
+
                 Console.WriteLine("✅ Índice cargado - Vector ordenado restaurado");
                 return true;
             }
@@ -218,11 +221,11 @@
                 indice.Limpiar();
                 buscador = null;
                 rutaIndiceActual = "";
-                
+
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
-                
+
                 Console.WriteLine("✅ Sistema limpiado");
             }
             catch (Exception ex)
@@ -260,33 +263,34 @@
         public ResultadoValidacion ValidarIntegridad()
         {
             var resultado = new ResultadoValidacion();
-            
+
             try
             {
                 var stats = ObtenerEstadisticas();
-                
+
                 resultado.IndiceNoVacio = stats.CantidadDocumentos > 0;
-                resultado.VectorOrdenado = stats.IndiceOrdenado;
+                resultado.Vector = stats.IndiceOrdenado;
                 resultado.BuscadorFuncional = buscador != null;
                 resultado.EstructurasConsistentes = stats.CantidadDocumentos > 0 && stats.CantidadTerminos > 0;
-                
-                resultado.EsValido = resultado.IndiceNoVacio && 
-                                   resultado.VectorOrdenado && 
-                                   resultado.BuscadorFuncional && 
-                                   resultado.EstructurasConsistentes;
-                
+
+                resultado.EsValido = resultado.IndiceNoVacio &&
+                                     resultado.Vector &&
+                                     resultado.BuscadorFuncional &&
+                                     resultado.EstructurasConsistentes;
+
                 if (resultado.EsValido)
                 {
-                    resultado.Mensaje = $"✅ Sistema válido: RadixSort activo, {stats.CantidadTerminos} términos ordenados";
+                    resultado.Mensaje =
+                        $"✅ Sistema válido: RadixSort activo, {stats.CantidadTerminos} términos ordenados";
                 }
                 else
                 {
                     var problemas = new List<string>();
                     if (!resultado.IndiceNoVacio) problemas.Add("índice vacío");
-                    if (!resultado.VectorOrdenado) problemas.Add("vector no ordenado");
+                    if (!resultado.Vector) problemas.Add("vector no ordenado");
                     if (!resultado.BuscadorFuncional) problemas.Add("buscador no funcional");
                     if (!resultado.EstructurasConsistentes) problemas.Add("estructuras inconsistentes");
-                    
+
                     resultado.Mensaje = $"⚠️ Problemas: {string.Join(", ", problemas)}";
                 }
             }
@@ -295,7 +299,7 @@
                 resultado.EsValido = false;
                 resultado.Mensaje = $"❌ Error en validación: {ex.Message}";
             }
-            
+
             return resultado;
         }
     }
@@ -307,7 +311,7 @@
     {
         public bool EsValido { get; set; }
         public bool IndiceNoVacio { get; set; }
-        public bool VectorOrdenado { get; set; }
+        public bool Vector { get; set; }
         public bool BuscadorFuncional { get; set; }
         public bool EstructurasConsistentes { get; set; }
         public string Mensaje { get; set; } = "";
@@ -317,9 +321,10 @@
             var estado = EsValido ? "VÁLIDO" : "INVÁLIDO";
             return $"🔍 Sistema: {estado}\n" +
                    $"   📊 Índice poblado: {(IndiceNoVacio ? "✅" : "❌")}\n" +
-                   $"   🔤 Vector ordenado: {(VectorOrdenado ? "✅" : "❌")}\n" +
+                   $"   🔤 Vector ordenado: {(Vector ? "✅" : "❌")}\n" +
                    $"   🎯 Buscador activo: {(BuscadorFuncional ? "✅" : "❌")}\n" +
                    $"   🏗️ Estructuras OK: {(EstructurasConsistentes ? "✅" : "❌")}\n" +
                    $"📝 {Mensaje}";
         }
     }
+}

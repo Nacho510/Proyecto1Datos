@@ -14,7 +14,7 @@ namespace PruebaRider.Persistencia
             {
                 // Escribir documentos primero
                 writer.Write(documentos.Count);
-                
+        
                 var iteradorDocs = new Iterador<Documento>(documentos);
                 while (iteradorDocs.Siguiente())
                 {
@@ -23,7 +23,7 @@ namespace PruebaRider.Persistencia
                     EscribirCadena(writer, doc.TextoOriginal);
                     EscribirCadena(writer, doc.Ruta);
                     EscribirCadena(writer, doc.Tokens ?? "");
-                    
+            
                     // Escribir frecuencias del documento
                     writer.Write(doc.Frecuencias.Count);
                     var iteradorFrecs = new Iterador<TerminoFrecuencia>(doc.Frecuencias);
@@ -34,23 +34,25 @@ namespace PruebaRider.Persistencia
                         writer.Write(tf.Frecuencia);
                     }
                 }
-                
+        
                 // Escribir términos del índice
                 writer.Write(indice.Count);
-                
+        
                 var iteradorTerminos = new Iterador<Termino>(indice);
                 while (iteradorTerminos.Siguiente())
                 {
                     var termino = iteradorTerminos.Current;
                     EscribirCadena(writer, termino.Palabra);
                     writer.Write(termino.Idf);
-                    
-                    // Escribir IDs de documentos asociados
+            
+                    // Escribir documentos asociados al término
                     writer.Write(termino.Documentos.Count);
-                    var iteradorDocsTermino = new Iterador<Documento>(termino.Documentos);
+                    var iteradorDocsTermino = new Iterador<DocumentoFrecuencia>(termino.Documentos);
                     while (iteradorDocsTermino.Siguiente())
                     {
-                        writer.Write(iteradorDocsTermino.Current.Id);
+                        writer.Write(iteradorDocsTermino.Current.Documento.Id);
+                        writer.Write(iteradorDocsTermino.Current.FrecuenciaTf);
+                        writer.Write(iteradorDocsTermino.Current.TfIdf);
                     }
                 }
             }
@@ -115,7 +117,7 @@ namespace PruebaRider.Persistencia
                         {
                             if (iteradorDocs.Current.Id == docId)
                             {
-                                termino.Documentos.Agregar(iteradorDocs.Current);
+                                termino.AgregarDocumento(iteradorDocs.Current, frecuenciaTf: reader.ReadInt32());
                                 break;
                             }
                         }

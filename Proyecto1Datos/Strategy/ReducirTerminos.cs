@@ -46,7 +46,7 @@ namespace PruebaRider.Strategy
                 frecuenciasDocumentos.Agregar(new FrecuenciaTermino
                 {
                     Termino = termino,
-                    FrecuenciaDocumental = termino.ListaDocumentos.Count
+                    FrecuenciaDocumental = termino.Documentos.Count
                 });
             }
 
@@ -122,7 +122,7 @@ namespace PruebaRider.Strategy
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                int frecuenciaDocumental = termino.ListaDocumentos.Count;
+                int frecuenciaDocumental = termino.Documentos.Count;
 
                 if (frecuenciaDocumental <= umbralAbsoluto)
                 {
@@ -153,7 +153,7 @@ namespace PruebaRider.Strategy
                     terminosOrdenados.Agregar(iterador2.Current);
                 }
 
-                terminosOrdenados.OrdenarDescendente(t => t.ListaDocumentos.Count);
+                terminosOrdenados.OrdenarDescendente(t => t.Documentos.Count);
 
                 var iteradorOrdenado = new Iterador<Termino>(terminosOrdenados);
                 int contador = 0;
@@ -163,7 +163,7 @@ namespace PruebaRider.Strategy
                     {
                         eliminados++;
                         Console.WriteLine(
-                            $"   🗑️ Eliminando: '{iteradorOrdenado.Current.Palabra}' ({iteradorOrdenado.Current.ListaDocumentos.Count} docs)");
+                            $"   🗑️ Eliminando: '{iteradorOrdenado.Current.Palabra}' ({iteradorOrdenado.Current.Documentos.Count} docs)");
                     }
                     else
                     {
@@ -237,7 +237,7 @@ namespace PruebaRider.Strategy
                 frecuenciasDocumentos.Agregar(new FrecuenciaTermino
                 {
                     Termino = termino,
-                    FrecuenciaDocumental = termino.ListaDocumentos.Count
+                    FrecuenciaDocumental = termino.Documentos.Count
                 });
             }
 

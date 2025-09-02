@@ -27,7 +27,7 @@ namespace PruebaRider.Strategy
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                if (termino.ListaDocumentos.Count < umbralFrecuencia)
+                if (termino.Documentos.Count < umbralFrecuencia)
                 {
                     nuevaLista.Agregar(termino);
                 }
@@ -50,7 +50,7 @@ namespace PruebaRider.Strategy
             var iterador = new Iterador<Termino>(indice);
             while (iterador.Siguiente())
             {
-                frecuencias.Agregar(iterador.Current.ListaDocumentos.Count);
+                frecuencias.Agregar(iterador.Current.Documentos.Count);
             }
             
             if (frecuencias.Count == 0) return 0;
@@ -98,7 +98,7 @@ namespace PruebaRider.Strategy
             var iterador = new Iterador<Termino>(indice);
             while (iterador.Siguiente())
             {
-                frecuencias.Agregar(iterador.Current.ListaDocumentos.Count);
+                frecuencias.Agregar(iterador.Current.Documentos.Count);
             }
             
             if (frecuencias.Count == 0) return;
@@ -127,7 +127,7 @@ namespace PruebaRider.Strategy
             while (iteradorTerminos.Siguiente())
             {
                 var termino = iteradorTerminos.Current;
-                if (termino.ListaDocumentos.Count > umbral)
+                if (termino.Documentos.Count > umbral)
                 {
                     nuevaLista.Agregar(termino);
                 }

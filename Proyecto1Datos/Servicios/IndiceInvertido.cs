@@ -14,7 +14,7 @@ namespace PruebaRider.Servicios
     public class IndiceInvertido
     {
         // CAMBIO PRINCIPAL: Vector ordenado en lugar de lista enlazada
-        private VectorOrdenado<Termino> indiceTerminos;
+        private Vector<Termino> indiceTerminos;
         private ListaDobleEnlazada<Documento> documentos;
         private ProcesadorDeTexto procesador;
         private SerializadorBinario serializador;
@@ -22,7 +22,7 @@ namespace PruebaRider.Servicios
 
         public IndiceInvertido()
         {
-            indiceTerminos = new VectorOrdenado<Termino>();
+            indiceTerminos = new Vector<Termino>();
             documentos = new ListaDobleEnlazada<Documento>();
             procesador = new ProcesadorDeTexto();
             serializador = new SerializadorBinario();
@@ -120,8 +120,8 @@ namespace PruebaRider.Servicios
             // Agregar cada término único al índice
             foreach (var kvp in frecuenciasLocales)
             {
-                string termino = kvp.Key;
-                int frecuencia = kvp.Value;
+                string termino = kvp.Token;
+                int frecuencia = kvp.Frecuencia;
 
                 AgregarTerminoAlIndice(termino, documento, frecuencia);
             }
@@ -559,7 +559,7 @@ namespace PruebaRider.Servicios
                 var (indiceNuevo, documentosNuevos) = serializador.CargarIndice(rutaArchivo);
 
                 // Convertir lista a vector ordenado
-                indiceTerminos = new VectorOrdenado<Termino>();
+                indiceTerminos = new Vector<Termino>();
                 var iterador = new Iterador<Termino>(indiceNuevo);
                 while (iterador.Siguiente())
                 {
@@ -634,7 +634,7 @@ namespace PruebaRider.Servicios
         // Getters
         public int GetCantidadDocumentos() => documentos.Count;
         public ListaDobleEnlazada<Documento> GetDocumentos() => documentos;
-        public VectorOrdenado<Termino> GetIndiceTerminos() => indiceTerminos;
+        public Vector<Termino> GetIndiceTerminos() => indiceTerminos;
     }
 
     /// <summary>
