@@ -255,7 +255,9 @@ namespace PruebaRider.UI
         {
             Console.Write($"📄 {posicion}. ");
             Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(Path.GetFileName(resultado.Documento.Ruta));
+            //Console.WriteLine(Path.GetFileName(resultado.Documento.Ruta));
+            string url = $"file:///{resultado.Documento.Ruta.Replace("\\", "/")}";
+            Console.WriteLine(url);
             Console.ResetColor();
 
             Console.ForegroundColor = ConsoleColor.DarkGray;

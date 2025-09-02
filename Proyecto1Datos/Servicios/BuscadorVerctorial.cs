@@ -1,7 +1,6 @@
 ﻿using PruebaRider.Estructura.Nodo;
 using PruebaRider.Estructura.Vector;
 using PruebaRider.Modelo;
-using PruebaRider.Servicios;
 
 namespace PruebaRider.Servicios
 {
@@ -62,7 +61,7 @@ namespace PruebaRider.Servicios
 
                 // Crear vector TF-IDF del documento
                 var vectorDoc = CrearVectorDocumento(documento);
-
+                
                 if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
                     continue;
 
@@ -74,9 +73,8 @@ namespace PruebaRider.Servicios
                     var resultado = new ResultadoBusquedaVectorial(documento, similitud);
                     resultados.Agregar(resultado);
                     conSimilitud++;
-
-                    Console.WriteLine(
-                        $"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
+                    
+                    Console.WriteLine($"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
                 }
             }
 
@@ -99,7 +97,7 @@ namespace PruebaRider.Servicios
             // Procesar consulta
             var procesador = new ProcesadorDeTexto();
             var tokens = procesador.ProcesarTextoCompleto(consulta);
-
+            
             if (tokens.Count == 0)
                 return null;
 
@@ -119,23 +117,22 @@ namespace PruebaRider.Servicios
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-
+                
                 // Buscar frecuencia del término en la consulta
                 int frecuenciaEnConsulta = ObtenerFrecuencia(frecuenciasConsulta, termino.Palabra);
-
+                
                 if (frecuenciaEnConsulta > 0)
                 {
                     // TF-IDF para consulta: TF * IDF
                     double tfIdf = frecuenciaEnConsulta * termino.Idf;
                     vector[posicion] = tfIdf;
-                    Console.WriteLine(
-                        $"   🔤 '{termino.Palabra}': TF={frecuenciaEnConsulta}, IDF={termino.Idf:F3}, TF-IDF={tfIdf:F3}");
+                    Console.WriteLine($"   🔤 '{termino.Palabra}': TF={frecuenciaEnConsulta}, IDF={termino.Idf:F3}, TF-IDF={tfIdf:F3}");
                 }
                 else
                 {
                     vector[posicion] = 0.0;
                 }
-
+                
                 posicion++;
             }
 
@@ -158,11 +155,11 @@ namespace PruebaRider.Servicios
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-
+                
                 // Obtener TF-IDF del término para este documento
                 double tfIdf = termino.ObtenerTfIdf(documento.Id);
                 vector[posicion] = tfIdf;
-
+                
                 posicion++;
             }
 
@@ -197,10 +194,10 @@ namespace PruebaRider.Servicios
 
                 if (!encontrado)
                 {
-                    conteos[cantidadUnicos] = new TokenConteo
-                    {
-                        Token = tokenNorm,
-                        Frecuencia = 1
+                    conteos[cantidadUnicos] = new TokenConteo 
+                    { 
+                        Token = tokenNorm, 
+                        Frecuencia = 1 
                     };
                     cantidadUnicos++;
                 }
@@ -222,7 +219,6 @@ namespace PruebaRider.Servicios
                 if (string.Equals(conteos[i].Token, token, StringComparison.OrdinalIgnoreCase))
                     return conteos[i].Frecuencia;
             }
-
             return 0;
         }
 
@@ -235,4 +231,5 @@ namespace PruebaRider.Servicios
             public int Frecuencia { get; set; }
         }
     }
+    
 }

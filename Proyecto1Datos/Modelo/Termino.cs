@@ -42,7 +42,7 @@ namespace PruebaRider.Modelo
         {
             if (documento == null)
                 throw new ArgumentNullException(nameof(documento));
-
+            
             if (frecuenciaTf <= 0)
                 throw new ArgumentException("La frecuencia debe ser mayor a 0");
 
@@ -59,6 +59,11 @@ namespace PruebaRider.Modelo
                     return;
                 }
             }
+
+            // Agregar nuevo documento
+            var docFrec = new DocumentoFrecuencia(documento, frecuenciaTf, frecuenciaTf * idf);
+            documentos.Agregar(docFrec);
+            totalApariciones += frecuenciaTf;
         }
 
         /// <summary>
@@ -136,7 +141,7 @@ namespace PruebaRider.Modelo
         /// <summary>
         /// Crear vector TF-IDF para todos los documentos del corpus
         /// </summary>
-       /* public Vector<int> CrearVectorTfIdf(ListaDobleEnlazada<Documento> todosDocumentos)
+        public Vector CrearVectorTfIdf(ListaDobleEnlazada<Documento> todosDocumentos)
         {
             if (todosDocumentos == null || todosDocumentos.Count == 0)
                 return new Vector(1);
@@ -154,7 +159,7 @@ namespace PruebaRider.Modelo
             }
 
             return vector;
-        }*/
+        }
 
         /// <summary>
         /// Implementación de IComparable para ordenamiento

@@ -7,14 +7,14 @@ namespace PruebaRider.Servicios
 {
     /// <summary>
     /// Índice invertido completamente reestructurado
-    /// - Vector ordenado con Radix Sort para términos
+    /// - VectorOrdenado con Radix Sort para términos
     /// - Búsqueda binaria O(log n)
     /// - Optimizado para similitud coseno
     /// </summary>
     public class IndiceInvertido
     {
-        // CAMBIO PRINCIPAL: Vector ordenado en lugar de lista enlazada
-        private Vector<Termino> indiceTerminos;
+        // CAMBIO PRINCIPAL: VectorOrdenado en lugar de lista enlazada
+        private VectorOrdenado<Termino> indiceTerminos;
         private ListaDobleEnlazada<Documento> documentos;
         private ProcesadorDeTexto procesador;
         private SerializadorBinario serializador;
@@ -22,7 +22,7 @@ namespace PruebaRider.Servicios
 
         public IndiceInvertido()
         {
-            indiceTerminos = new Vector<Termino>();
+            indiceTerminos = new VectorOrdenado<Termino>();
             documentos = new ListaDobleEnlazada<Documento>();
             procesador = new ProcesadorDeTexto();
             serializador = new SerializadorBinario();
@@ -559,7 +559,7 @@ namespace PruebaRider.Servicios
                 var (indiceNuevo, documentosNuevos) = serializador.CargarIndice(rutaArchivo);
 
                 // Convertir lista a vector ordenado
-                indiceTerminos = new Vector<Termino>();
+                indiceTerminos = new VectorOrdenado<Termino>();
                 var iterador = new Iterador<Termino>(indiceNuevo);
                 while (iterador.Siguiente())
                 {
@@ -634,7 +634,7 @@ namespace PruebaRider.Servicios
         // Getters
         public int GetCantidadDocumentos() => documentos.Count;
         public ListaDobleEnlazada<Documento> GetDocumentos() => documentos;
-        public Vector<Termino> GetIndiceTerminos() => indiceTerminos;
+        public VectorOrdenado<Termino> GetIndiceTerminos() => indiceTerminos;
     }
 
     /// <summary>
