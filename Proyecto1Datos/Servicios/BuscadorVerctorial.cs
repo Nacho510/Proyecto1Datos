@@ -5,307 +5,173 @@ using PruebaRider.Modelo;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// BuscadorVectorial CORREGIDO - AHORA SÍ FUNCIONA
-    /// - Manejo robusto de términos faltantes
-    /// - Vector de consulta siempre válido
-    /// - Umbral de similitud más bajo
-    /// - Mejor debugging
+    /// Buscador vectorial simplificado y optimizado
+    /// - Enfocado en similitud coseno perfecta
+    /// - Usa el nuevo índice con vector ordenado y RadixSort
+    /// - Sin complejidad innecesaria
     /// </summary>
     public class BuscadorVectorial
     {
-        private readonly IndiceInvertido indiceInvertido;
-        private readonly ProcesadorDeTexto procesador;
+        private readonly IndiceInvertido indice;
 
-        public BuscadorVectorial(IndiceInvertido indiceInvertido)
+        public BuscadorVectorial(IndiceInvertido indice)
         {
-            this.indiceInvertido = indiceInvertido ?? throw new ArgumentNullException(nameof(indiceInvertido));
-            this.procesador = new ProcesadorDeTexto();
+            this.indice = indice ?? throw new ArgumentNullException(nameof(indice));
         }
 
         /// <summary>
-        /// BÚSQUEDA VECTORIAL CORREGIDA - AHORA FUNCIONA CORRECTAMENTE
+        /// BÚSQUEDA VECTORIAL PRINCIPAL
+        /// Este es el corazón del sistema de búsqueda
         /// </summary>
-        public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
+        public ListaDobleEnlazada<ResultadoBusquedaVectorial> Buscar(string consulta)
         {
             var resultados = new ListaDobleEnlazada<ResultadoBusquedaVectorial>();
 
             if (string.IsNullOrWhiteSpace(consulta))
                 return resultados;
 
-            Console.WriteLine($"🔍 Procesando consulta: '{consulta}'");
+            Console.WriteLine($"🔍 Buscador vectorial: '{consulta}'");
 
-            // 1. PROCESAR CONSULTA
-            var tokensConsulta = procesador.ProcesarTextoCompleto(consulta);
-            if (tokensConsulta.Count == 0)
+            // 1. CREAR VECTOR DE CONSULTA
+            var vectorConsulta = CrearVectorConsulta(consulta);
+            if (vectorConsulta == null)
             {
-                Console.WriteLine("❌ No se encontraron tokens válidos en la consulta");
+                Console.WriteLine("❌ No se pudo crear vector de consulta");
                 return resultados;
             }
 
-            Console.WriteLine($"📝 Tokens encontrados: {string.Join(", ", tokensConsulta)}");
-
-            // 2. VERIFICAR QUE TENEMOS VOCABULARIO
-            if (indiceInvertido.GetIndice().Count == 0)
+            if (!vectorConsulta.TieneValoresSignificativos())
             {
-                Console.WriteLine("❌ El índice está vacío - no hay vocabulario");
+                Console.WriteLine("❌ Vector de consulta sin valores significativos");
                 return resultados;
             }
 
-            // 3. CREAR VECTOR DE CONSULTA ROBUSTO
-            var vectorConsulta = CrearVectorConsultaRobusto(tokensConsulta);
-            if (vectorConsulta == null || !vectorConsulta.TieneValoresSignificativos())
-            {
-                Console.WriteLine("❌ No se pudo crear vector de consulta válido");
-                // NUEVO: Intentar con términos parciales
-                vectorConsulta = CrearVectorConsultaParcial(tokensConsulta);
-                if (vectorConsulta == null || !vectorConsulta.TieneValoresSignificativos())
-                {
-                    Console.WriteLine("❌ Tampoco se pudo crear vector con términos parciales");
-                    return resultados;
-                }
-            }
+            Console.WriteLine($"📊 Vector consulta: magnitud = {vectorConsulta.Magnitud():F4}");
 
-            Console.WriteLine($"📊 Vector consulta creado con magnitud: {vectorConsulta.Magnitud():F4}");
+            // 2. COMPARAR CON TODOS LOS DOCUMENTOS
+            var documentos = indice.GetDocumentos();
+            var iteradorDocs = new Iterador<Documento>(documentos);
+            int procesados = 0;
+            int conSimilitud = 0;
 
-            // 4. BUSCAR EN TODOS LOS DOCUMENTOS CON UMBRAL MUY BAJO
-            int documentosProcessados = 0;
-            int documentosConSimilitud = 0;
-
-            var iteradorDocs = new Iterador<Documento>(indiceInvertido.GetDocumentos());
             while (iteradorDocs.Siguiente())
             {
                 var documento = iteradorDocs.Current;
-                documentosProcessados++;
+                procesados++;
 
-                // Crear vector del documento
-                var vectorDoc = CrearVectorDocumentoRobusto(documento, vectorConsulta.Dimension);
-
+                // Crear vector TF-IDF del documento
+                var vectorDoc = CrearVectorDocumento(documento);
+                
                 if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
                     continue;
 
-                // Calcular similitud coseno
+                // CALCULAR SIMILITUD COSENO
                 double similitud = vectorConsulta.SimilitudCoseno(vectorDoc);
 
-                // UMBRAL EXTREMADAMENTE BAJO para encontrar cualquier resultado
-                if (similitud > 0.0001)
+                if (similitud > 0.0001) // Umbral muy bajo para capturar cualquier similitud
                 {
                     var resultado = new ResultadoBusquedaVectorial(documento, similitud);
                     resultados.Agregar(resultado);
-                    documentosConSimilitud++;
-
-                    Console.WriteLine(
-                        $"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
+                    conSimilitud++;
+                    
+                    Console.WriteLine($"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
                 }
             }
 
-            Console.WriteLine($"📊 Procesados: {documentosProcessados} documentos");
-            Console.WriteLine($"📊 Con similitud: {documentosConSimilitud} documentos");
+            Console.WriteLine($"📊 Procesados: {procesados}, Con similitud: {conSimilitud}");
 
-            // 5. ORDENAR RESULTADOS
+            // 3. ORDENAR POR SIMILITUD DESCENDENTE
             if (resultados.Count > 0)
             {
                 resultados.OrdenarDescendente(r => r.SimilitudCoseno);
             }
 
-            Console.WriteLine($"✅ Búsqueda completada: {resultados.Count} resultados finales");
             return resultados;
         }
 
         /// <summary>
-        /// CREAR VECTOR DE CONSULTA ROBUSTO - Maneja términos faltantes
+        /// Crear vector TF-IDF para la consulta
         /// </summary>
-        private Vector CrearVectorConsultaRobusto(List<string> tokens)
+        private Vector CrearVectorConsulta(string consulta)
         {
-            // Obtener todos los términos del índice
-            var todosLosTerminos = new ListaDobleEnlazada<string>();
-            var iteradorIndice = new Iterador<Termino>(indiceInvertido.GetIndice());
-            while (iteradorIndice.Siguiente())
-            {
-                todosLosTerminos.Agregar(iteradorIndice.Current.Palabra);
-            }
-
-            if (todosLosTerminos.Count == 0)
-            {
-                Console.WriteLine("❌ El índice está vacío");
+            // Procesar consulta
+            var procesador = new ProcesadorDeTexto();
+            var tokens = procesador.ProcesarTextoCompleto(consulta);
+            
+            if (tokens.Count == 0)
                 return null;
-            }
-
-            Console.WriteLine($"📚 Vocabulario total: {todosLosTerminos.Count} términos");
-
-            // Crear vector con la dimensión del vocabulario total
-            var vector = new Vector(todosLosTerminos.Count);
 
             // Contar frecuencias en la consulta
             var frecuenciasConsulta = ContarFrecuencias(tokens);
 
-            // Llenar el vector
-            var iteradorVocab = new Iterador<string>(todosLosTerminos);
-            int indice = 0;
-            int terminosEncontradosEnConsulta = 0;
-
-            while (iteradorVocab.Siguiente())
-            {
-                string termino = iteradorVocab.Current;
-                int frecuencia = ObtenerFrecuencia(frecuenciasConsulta, termino);
-
-                if (frecuencia > 0)
-                {
-                    // Buscar el término en el índice para obtener su IDF
-                    var terminoObj = indiceInvertido.BuscarTermino(termino);
-                    if (terminoObj != null)
-                    {
-                        double tfIdf = frecuencia * terminoObj.Idf;
-                        vector[indice] = tfIdf;
-                        terminosEncontradosEnConsulta++;
-                        Console.WriteLine(
-                            $"   🔤 '{termino}': TF={frecuencia}, IDF={terminoObj.Idf:F3}, TF-IDF={tfIdf:F3}");
-                    }
-                    else
-                    {
-                        vector[indice] = 0.0;
-                    }
-                }
-                else
-                {
-                    vector[indice] = 0.0;
-                }
-
-                indice++;
-            }
-
-            Console.WriteLine($"📊 Términos de consulta encontrados en vocabulario: {terminosEncontradosEnConsulta}");
-
-            if (terminosEncontradosEnConsulta == 0)
-            {
-                Console.WriteLine("❌ Ningún término de la consulta está en el vocabulario");
+            // Obtener vocabulario completo del índice
+            var indiceTerminos = indice.GetIndiceTerminos();
+            if (indiceTerminos.Count == 0)
                 return null;
+
+            // Crear vector con dimensión = tamaño del vocabulario
+            var vector = new Vector(indiceTerminos.Count);
+            var iterador = indiceTerminos.ObtenerIterador();
+            int posicion = 0;
+
+            while (iterador.Siguiente())
+            {
+                var termino = iterador.Current;
+                
+                // Buscar frecuencia del término en la consulta
+                int frecuenciaEnConsulta = ObtenerFrecuencia(frecuenciasConsulta, termino.Palabra);
+                
+                if (frecuenciaEnConsulta > 0)
+                {
+                    // TF-IDF para consulta: TF * IDF
+                    double tfIdf = frecuenciaEnConsulta * termino.Idf;
+                    vector[posicion] = tfIdf;
+                    Console.WriteLine($"   🔤 '{termino.Palabra}': TF={frecuenciaEnConsulta}, IDF={termino.Idf:F3}, TF-IDF={tfIdf:F3}");
+                }
+                else
+                {
+                    vector[posicion] = 0.0;
+                }
+                
+                posicion++;
             }
 
             return vector;
         }
 
         /// <summary>
-        /// NUEVO: Crear vector de consulta con términos parciales
-        /// Intenta encontrar términos que contengan las palabras de búsqueda
+        /// Crear vector TF-IDF para un documento
         /// </summary>
-        private Vector CrearVectorConsultaParcial(List<string> tokens)
+        private Vector CrearVectorDocumento(Documento documento)
         {
-            Console.WriteLine("🔍 Intentando búsqueda con términos parciales...");
+            var indiceTerminos = indice.GetIndiceTerminos();
+            if (indiceTerminos.Count == 0)
+                return null;
 
-            var todosLosTerminos = new ListaDobleEnlazada<string>();
-            var iteradorIndice = new Iterador<Termino>(indiceInvertido.GetIndice());
-            while (iteradorIndice.Siguiente())
+            var vector = new Vector(indiceTerminos.Count);
+            var iterador = indiceTerminos.ObtenerIterador();
+            int posicion = 0;
+
+            while (iterador.Siguiente())
             {
-                todosLosTerminos.Agregar(iteradorIndice.Current.Palabra);
+                var termino = iterador.Current;
+                
+                // Obtener TF-IDF del término para este documento
+                double tfIdf = termino.ObtenerTfIdf(documento.Id);
+                vector[posicion] = tfIdf;
+                
+                posicion++;
             }
 
-            if (todosLosTerminos.Count == 0) return null;
-
-            var vector = new Vector(todosLosTerminos.Count);
-            var iteradorVocab = new Iterador<string>(todosLosTerminos);
-            int indice = 0;
-            int coincidenciasParciales = 0;
-
-            while (iteradorVocab.Siguiente())
-            {
-                string terminoVocabulario = iteradorVocab.Current;
-
-                // Buscar coincidencias parciales
-                bool hayCoincidencia = false;
-                foreach (var tokenConsulta in tokens)
-                {
-                    if (string.IsNullOrWhiteSpace(tokenConsulta)) continue;
-
-                    // Verificar si el término del vocabulario contiene el token de consulta o viceversa
-                    if (terminoVocabulario.Contains(tokenConsulta.ToLowerInvariant()) ||
-                        tokenConsulta.ToLowerInvariant().Contains(terminoVocabulario))
-                    {
-                        hayCoincidencia = true;
-                        break;
-                    }
-                }
-
-                if (hayCoincidencia)
-                {
-                    var terminoObj = indiceInvertido.BuscarTermino(terminoVocabulario);
-                    if (terminoObj != null)
-                    {
-                        // Usar frecuencia reducida para coincidencias parciales
-                        double tfIdf = 0.5 * terminoObj.Idf;
-                        vector[indice] = tfIdf;
-                        coincidenciasParciales++;
-                        Console.WriteLine($"   🔤 Coincidencia parcial: '{terminoVocabulario}' -> TF-IDF={tfIdf:F3}");
-                    }
-                }
-                else
-                {
-                    vector[indice] = 0.0;
-                }
-
-                indice++;
-            }
-
-            Console.WriteLine($"📊 Coincidencias parciales encontradas: {coincidenciasParciales}");
-
-            return coincidenciasParciales > 0 ? vector : null;
-        }
-
-        /// <summary>
-        /// CREAR VECTOR DE DOCUMENTO ROBUSTO - Con dimensión fija
-        /// </summary>
-        private Vector CrearVectorDocumentoRobusto(Documento documento, int dimension)
-        {
-            // Obtener todos los términos del índice (mismo orden que consulta)
-            var todosLosTerminos = new ListaDobleEnlazada<string>();
-            var iteradorIndice = new Iterador<Termino>(indiceInvertido.GetIndice());
-            while (iteradorIndice.Siguiente())
-            {
-                todosLosTerminos.Agregar(iteradorIndice.Current.Palabra);
-            }
-
-            var vector = new Vector(dimension);
-
-            var iteradorVocab = new Iterador<string>(todosLosTerminos);
-            int indice = 0;
-            int valoresNoZero = 0;
-
-            while (iteradorVocab.Siguiente() && indice < dimension)
-            {
-                string termino = iteradorVocab.Current;
-                int frecuencia = documento.GetFrecuencia(termino);
-
-                if (frecuencia > 0)
-                {
-                    var terminoObj = indiceInvertido.BuscarTermino(termino);
-                    if (terminoObj != null)
-                    {
-                        double tfIdf = frecuencia * terminoObj.Idf;
-                        vector[indice] = tfIdf;
-                        valoresNoZero++;
-                    }
-                    else
-                    {
-                        vector[indice] = 0.0;
-                    }
-                }
-                else
-                {
-                    vector[indice] = 0.0;
-                }
-
-                indice++;
-            }
-
-            // Console.WriteLine($"   📊 Vector documento: {valoresNoZero} valores no-cero de {dimension}");
             return vector;
         }
 
         /// <summary>
-        /// Contar frecuencias de tokens - SIMPLIFICADO
+        /// Contar frecuencias de tokens sin usar estructuras prohibidas
         /// </summary>
-        private TokenFrecuencia[] ContarFrecuencias(List<string> tokens)
+        private TokenConteo[] ContarFrecuencias(List<string> tokens)
         {
-            var resultado = new TokenFrecuencia[tokens.Count];
+            var conteos = new TokenConteo[tokens.Count]; // Máximo posible
             int cantidadUnicos = 0;
 
             foreach (var token in tokens)
@@ -318,9 +184,9 @@ namespace PruebaRider.Servicios
                 // Buscar si ya existe
                 for (int i = 0; i < cantidadUnicos; i++)
                 {
-                    if (resultado[i].Token == tokenNorm)
+                    if (conteos[i].Token == tokenNorm)
                     {
-                        resultado[i].Frecuencia++;
+                        conteos[i].Frecuencia++;
                         encontrado = true;
                         break;
                     }
@@ -328,38 +194,84 @@ namespace PruebaRider.Servicios
 
                 if (!encontrado)
                 {
-                    resultado[cantidadUnicos] = new TokenFrecuencia { Token = tokenNorm, Frecuencia = 1 };
+                    conteos[cantidadUnicos] = new TokenConteo 
+                    { 
+                        Token = tokenNorm, 
+                        Frecuencia = 1 
+                    };
                     cantidadUnicos++;
                 }
             }
 
             // Crear array del tamaño exacto
-            var final = new TokenFrecuencia[cantidadUnicos];
-            Array.Copy(resultado, final, cantidadUnicos);
-            return final;
+            var resultado = new TokenConteo[cantidadUnicos];
+            Array.Copy(conteos, resultado, cantidadUnicos);
+            return resultado;
         }
 
         /// <summary>
         /// Obtener frecuencia de un token específico
         /// </summary>
-        private int ObtenerFrecuencia(TokenFrecuencia[] frecuencias, string token)
+        private int ObtenerFrecuencia(TokenConteo[] conteos, string token)
         {
-            for (int i = 0; i < frecuencias.Length; i++)
+            for (int i = 0; i < conteos.Length; i++)
             {
-                if (string.Equals(frecuencias[i].Token, token, StringComparison.OrdinalIgnoreCase))
-                    return frecuencias[i].Frecuencia;
+                if (string.Equals(conteos[i].Token, token, StringComparison.OrdinalIgnoreCase))
+                    return conteos[i].Frecuencia;
             }
-
             return 0;
+        }
+
+        /// <summary>
+        /// Estructura simple para conteo de tokens
+        /// </summary>
+        private struct TokenConteo
+        {
+            public string Token { get; set; }
+            public int Frecuencia { get; set; }
         }
     }
 
     /// <summary>
-    /// Estructura para frecuencias de tokens
+    /// Resultado de búsqueda vectorial con enlaces base64
     /// </summary>
-    public struct TokenFrecuencia
+    public class ResultadoBusquedaVectorial
     {
-        public string Token { get; set; }
-        public int Frecuencia { get; set; }
+        public Documento Documento { get; set; }
+        public double SimilitudCoseno { get; set; }
+        public string EnlaceBase64 { get; private set; }
+
+        public ResultadoBusquedaVectorial(Documento documento, double similitudCoseno)
+        {
+            Documento = documento ?? throw new ArgumentNullException(nameof(documento));
+            SimilitudCoseno = Math.Max(0.0, Math.Min(1.0, similitudCoseno));
+            EnlaceBase64 = GenerarEnlaceBase64();
+        }
+
+        private string GenerarEnlaceBase64()
+        {
+            try
+            {
+                string contenido = File.Exists(Documento.Ruta) 
+                    ? File.ReadAllText(Documento.Ruta)
+                    : Documento.TextoOriginal ?? "Contenido no disponible";
+                
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes(contenido);
+                string base64 = Convert.ToBase64String(bytes);
+                return $"data:text/plain;base64,{base64}";
+            }
+            catch (Exception)
+            {
+                byte[] errorBytes = System.Text.Encoding.UTF8.GetBytes(
+                    $"Error al cargar: {Path.GetFileName(Documento.Ruta)}");
+                string errorBase64 = Convert.ToBase64String(errorBytes);
+                return $"data:text/plain;base64,{errorBase64}";
+            }
+        }
+
+        public override string ToString()
+        {
+            return $"📄 {Path.GetFileName(Documento.Ruta)} | {SimilitudCoseno * 100:F1}% | 🔗 Base64";
+        }
     }
 }

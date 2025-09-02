@@ -46,8 +46,8 @@ namespace PruebaRider.Persistencia
                     writer.Write(termino.Idf);
                     
                     // Escribir IDs de documentos asociados
-                    writer.Write(termino.ListaDocumentos.Count);
-                    var iteradorDocsTermino = new Iterador<Documento>(termino.ListaDocumentos);
+                    writer.Write(termino.Documentos.Count);
+                    var iteradorDocsTermino = new Iterador<Documento>(termino.Documentos);
                     while (iteradorDocsTermino.Siguiente())
                     {
                         writer.Write(iteradorDocsTermino.Current.Id);
@@ -115,7 +115,7 @@ namespace PruebaRider.Persistencia
                         {
                             if (iteradorDocs.Current.Id == docId)
                             {
-                                termino.ListaDocumentos.Agregar(iteradorDocs.Current);
+                                termino.Documentos.Agregar(iteradorDocs.Current);
                                 break;
                             }
                         }

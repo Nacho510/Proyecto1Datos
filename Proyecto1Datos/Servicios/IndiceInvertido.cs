@@ -1,25 +1,28 @@
 ﻿using PruebaRider.Modelo;
 using PruebaRider.Estructura.Nodo;
-using PruebaRider.Strategy;
+using PruebaRider.Estructura.Vector;
 using PruebaRider.Persistencia;
 
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// IndiceInvertido CORREGIDO - Zipf menos agresivo y mejor manejo de términos
+    /// Índice invertido completamente reestructurado
+    /// - Vector ordenado con Radix Sort para términos
+    /// - Búsqueda binaria O(log n)
+    /// - Optimizado para similitud coseno
     /// </summary>
     public class IndiceInvertido
     {
-        private ListaDobleEnlazada<Termino> indice;
+        // CAMBIO PRINCIPAL: Vector ordenado en lugar de lista enlazada
+        private VectorOrdenado<Termino> indiceTerminos;
         private ListaDobleEnlazada<Documento> documentos;
         private ProcesadorDeTexto procesador;
         private SerializadorBinario serializador;
-        private BuscadorVectorial buscadorVectorial;
         private int contadorDocumentos;
 
         public IndiceInvertido()
         {
-            indice = new ListaDobleEnlazada<Termino>();
+            indiceTerminos = new VectorOrdenado<Termino>();
             documentos = new ListaDobleEnlazada<Documento>();
             procesador = new ProcesadorDeTexto();
             serializador = new SerializadorBinario();
@@ -27,42 +30,31 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// CREAR DESDE RUTA - CORREGIDO con Zipf menos agresivo
+        /// CREAR DESDE RUTA - Reestructurado completamente
         /// </summary>
         public async Task CrearDesdeRuta(string rutaDirectorio)
         {
-            Console.WriteLine("🚀 Creando índice invertido...");
+            Console.WriteLine("🚀 Creando índice invertido con Vector ordenado + Radix Sort...");
 
             Limpiar();
             await CargarDirectorio(rutaDirectorio);
 
             Console.WriteLine($"📊 Documentos cargados: {documentos.Count}");
-            Console.WriteLine($"📊 Términos únicos antes de Zipf: {indice.Count}");
+            Console.WriteLine($"📊 Términos únicos: {indiceTerminos.Count}");
 
-            // APLICAR ZIPF MUY CONSERVADOR - Solo si hay muchísimos términos
-            if (indice.Count > 500) // Umbral más alto
-            {
-                Console.WriteLine("⚡ Aplicando optimización Zipf conservadora...");
-                await AplicarOptimizacionConservadora();
-            }
-            else
-            {
-                Console.WriteLine("📊 Vocabulario óptimo - No se aplica Zipf");
-            }
+            // APLICAR RADIX SORT - Requisito específico
+            Console.WriteLine("⚡ Aplicando Radix Sort a términos...");
+            indiceTerminos.OrdenarRadix();
 
-            Console.WriteLine($"📊 Términos únicos después de Zipf: {indice.Count}");
+            // Calcular IDF y TF-IDF
+            CalcularMetricasTfIdf();
 
-            OrdenarIndice();
-            CalcularIdfGlobal();
-
-            // INICIALIZAR BUSCADOR VECTORIAL
-            buscadorVectorial = new BuscadorVectorial(this);
-
-            Console.WriteLine($"✅ Índice creado: {documentos.Count} documentos, {indice.Count} términos");
+            Console.WriteLine(
+                $"✅ Índice creado con Radix Sort: {documentos.Count} docs, {indiceTerminos.Count} términos");
         }
 
         /// <summary>
-        /// CARGAR DIRECTORIO - SIN CAMBIOS
+        /// Cargar directorio de documentos
         /// </summary>
         public async Task CargarDirectorio(string rutaDirectorio)
         {
@@ -70,7 +62,6 @@ namespace PruebaRider.Servicios
                 throw new DirectoryNotFoundException($"Directorio no encontrado: {rutaDirectorio}");
 
             var archivos = Directory.GetFiles(rutaDirectorio, "*.txt");
-
             if (archivos.Length == 0)
                 throw new InvalidOperationException("No se encontraron archivos .txt");
 
@@ -83,14 +74,13 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// AGREGAR DOCUMENTO - SIN CAMBIOS
+        /// Agregar documento individual
         /// </summary>
         public async Task AgregarDocumento(string rutaArchivo)
         {
             try
             {
                 string contenido = await File.ReadAllTextAsync(rutaArchivo);
-
                 if (string.IsNullOrWhiteSpace(contenido))
                 {
                     Console.WriteLine($"⚠️ Archivo vacío: {Path.GetFileName(rutaArchivo)}");
@@ -108,14 +98,10 @@ namespace PruebaRider.Servicios
                 documento.CalcularFrecuencias(tokens);
                 documentos.Agregar(documento);
 
-                Console.WriteLine($"📄 Procesado: {Path.GetFileName(rutaArchivo)} ({tokens.Count} tokens)");
+                Console.WriteLine($"📄 {Path.GetFileName(rutaArchivo)} ({tokens.Count} tokens)");
 
-                // Procesar términos únicos
-                var tokensUnicos = EliminarDuplicadosSinGenericos(tokens);
-                foreach (var token in tokensUnicos)
-                {
-                    AgregarTermino(token, documento);
-                }
+                // Procesar términos y agregar al índice
+                ProcesarTerminosDelDocumento(documento, tokens);
             }
             catch (Exception ex)
             {
@@ -124,28 +110,86 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// BÚSQUEDA VECTORIAL CORREGIDA - MÉTODO PRINCIPAL
+        /// Procesar términos de un documento y agregarlos al índice
         /// </summary>
-        public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
+        private void ProcesarTerminosDelDocumento(Documento documento, List<string> tokens)
         {
-            Console.WriteLine($"🔍 === INICIANDO BÚSQUEDA VECTORIAL ===");
-            Console.WriteLine($"📝 Consulta: '{consulta}'");
-            Console.WriteLine($"📚 Índice: {indice.Count} términos, {documentos.Count} documentos");
+            // Contar frecuencias únicas del documento
+            var frecuenciasLocales = ContarFrecuenciasLocales(tokens);
 
-            if (buscadorVectorial == null)
+            // Agregar cada término único al índice
+            foreach (var kvp in frecuenciasLocales)
             {
-                Console.WriteLine("🎯 Inicializando buscador vectorial...");
-                buscadorVectorial = new BuscadorVectorial(this);
+                string termino = kvp.Key;
+                int frecuencia = kvp.Value;
+
+                AgregarTerminoAlIndice(termino, documento, frecuencia);
             }
-
-            var resultados = buscadorVectorial.BuscarConSimilitudCoseno(consulta);
-
-            Console.WriteLine($"🔍 === FIN BÚSQUEDA VECTORIAL ===");
-            return resultados;
         }
 
         /// <summary>
-        /// BUSCAR TERMINO - CORREGIDO
+        /// Contar frecuencias locales sin usar Dictionary (prohibido)
+        /// </summary>
+        private TerminoFrecuencia[] ContarFrecuenciasLocales(List<string> tokens)
+        {
+            var resultado = new TerminoFrecuencia[tokens.Count]; // Máximo posible
+            int cantidadUnicos = 0;
+
+            foreach (var token in tokens)
+            {
+                if (string.IsNullOrWhiteSpace(token)) continue;
+
+                string tokenNorm = token.ToLowerInvariant();
+                bool encontrado = false;
+
+                // Buscar si ya existe
+                for (int i = 0; i < cantidadUnicos; i++)
+                {
+                    if (resultado[i].Token == tokenNorm)
+                    {
+                        resultado[i].Frecuencia++;
+                        encontrado = true;
+                        break;
+                    }
+                }
+
+                if (!encontrado)
+                {
+                    resultado[cantidadUnicos] = new TerminoFrecuencia(tokenNorm, 1);
+                    cantidadUnicos++;
+                }
+            }
+
+            // Crear array del tamaño exacto
+            var final = new TerminoFrecuencia[cantidadUnicos];
+            Array.Copy(resultado, final, cantidadUnicos);
+            return final;
+        }
+
+        /// <summary>
+        /// Agregar término al índice usando vector ordenado
+        /// </summary>
+        private void AgregarTerminoAlIndice(string palabra, Documento documento, int frecuencia)
+        {
+            // Buscar término existente
+            var terminoExistente = BuscarTermino(palabra);
+
+            if (terminoExistente == null)
+            {
+                // Crear nuevo término y agregarlo SIN orden (más rápido)
+                var nuevoTermino = new Termino(palabra);
+                nuevoTermino.AgregarDocumento(documento, frecuencia);
+                indiceTerminos.Agregar(nuevoTermino); // Se ordenará después con RadixSort
+            }
+            else
+            {
+                // Actualizar término existente
+                terminoExistente.AgregarDocumento(documento, frecuencia);
+            }
+        }
+
+        /// <summary>
+        /// BÚSQUEDA DE TÉRMINO - Optimizada con búsqueda binaria
         /// </summary>
         public Termino BuscarTermino(string palabra)
         {
@@ -154,16 +198,16 @@ namespace PruebaRider.Servicios
 
             string palabraNormalizada = palabra.ToLowerInvariant();
 
-            if (indice.EstaOrdenada && indice.Count > 10)
+            if (indiceTerminos.EstaOrdenado)
             {
-                // Búsqueda binaria
-                var dummy = new Termino(palabraNormalizada);
-                return indice.BuscarBinario(dummy, CompararTerminos);
+                // Búsqueda binaria O(log n) - MUY EFICIENTE
+                var terminoBusqueda = new Termino(palabraNormalizada);
+                return indiceTerminos.BuscarBinario(terminoBusqueda);
             }
             else
             {
-                // Búsqueda lineal
-                var iterador = new Iterador<Termino>(indice);
+                // Búsqueda lineal como fallback (solo durante construcción)
+                var iterador = indiceTerminos.ObtenerIterador();
                 while (iterador.Siguiente())
                 {
                     if (string.Equals(iterador.Current.Palabra, palabraNormalizada, StringComparison.OrdinalIgnoreCase))
@@ -175,109 +219,175 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// NUEVA OPTIMIZACIÓN CONSERVADORA - Mucho menos agresiva
+        /// BÚSQUEDA CON SIMILITUD COSENO - NÚCLEO DEL SISTEMA
         /// </summary>
-        private async Task AplicarOptimizacionConservadora()
+        public ListaDobleEnlazada<ResultadoBusquedaVectorial> BuscarConSimilitudCoseno(string consulta)
         {
-            if (indice.Count == 0) return;
+            var resultados = new ListaDobleEnlazada<ResultadoBusquedaVectorial>();
 
-            int terminosOriginales = indice.Count;
-            
-            // Aplicar Zipf MUCHO más conservador
-            if (terminosOriginales > 2000)
+            if (string.IsNullOrWhiteSpace(consulta))
+                return resultados;
+
+            Console.WriteLine($"🔍 Búsqueda vectorial: '{consulta}'");
+
+            // 1. PROCESAR CONSULTA
+            var tokensConsulta = procesador.ProcesarTextoCompleto(consulta);
+            if (tokensConsulta.Count == 0)
             {
-                Console.WriteLine("📊 Aplicando Zipf moderado (15% términos muy frecuentes)");
-                AplicarZipfInterno(15, true); // Solo eliminar 15% de términos muy frecuentes
-            }
-            else if (terminosOriginales > 1000)
-            {
-                Console.WriteLine("📊 Aplicando Zipf suave (10% términos muy frecuentes)");
-                AplicarZipfInterno(10, true); // Solo eliminar 10%
-            }
-            else if (terminosOriginales > 500)
-            {
-                Console.WriteLine("📊 Aplicando Zipf muy suave (5% términos muy frecuentes)");
-                AplicarZipfInterno(5, true); // Solo eliminar 5%
+                Console.WriteLine("❌ No se encontraron tokens válidos");
+                return resultados;
             }
 
-            int terminosFinales = indice.Count;
-            int terminosEliminados = terminosOriginales - terminosFinales;
-
-            if (terminosEliminados > 0)
+            // 2. CREAR VECTOR DE CONSULTA
+            var vectorConsulta = CrearVectorConsulta(tokensConsulta);
+            if (vectorConsulta == null || !vectorConsulta.TieneValoresSignificativos())
             {
-                Console.WriteLine($"✅ Optimización conservadora aplicada:");
-                Console.WriteLine($"   📊 Términos eliminados: {terminosEliminados}");
-                Console.WriteLine($"   📊 Términos conservados: {terminosFinales}");
-                Console.WriteLine($"   📊 Porcentaje conservado: {(double)terminosFinales/terminosOriginales*100:F1}%");
-            }
-        }
-
-        /// <summary>
-        /// APLICAR ZIPF INTERNO - MEJORADO para ser menos agresivo
-        /// </summary>
-        private void AplicarZipfInterno(int percentil, bool eliminarFrecuentes)
-        {
-            if (percentil <= 0 || percentil >= 50) return; // Máximo 50% para ser conservador
-
-            var contexto = new ContextoZipf();
-
-            if (eliminarFrecuentes)
-            {
-                // Usar estrategia menos agresiva
-                var estrategiaConservadora = new EliminarTerminosFrecuentesConservadora(indice, documentos.Count);
-                contexto.EstablecerEstrategia(estrategiaConservadora);
-            }
-            else
-            {
-                contexto.EstablecerEstrategia(new EliminarTerminosRaros(indice));
+                Console.WriteLine("❌ No se pudo crear vector de consulta válido");
+                return resultados;
             }
 
-            contexto.AplicarLeyZipf(percentil);
-        }
+            Console.WriteLine($"📊 Vector consulta creado (magnitud: {vectorConsulta.Magnitud():F4})");
 
-        /// <summary>
-        /// MOSTRAR ESTADÍSTICAS DE DEBUGGING - MEJORADO
-        /// </summary>
-        public void MostrarEstadisticasDebug()
-        {
-            Console.WriteLine($"\n=== ESTADÍSTICAS DEL ÍNDICE ===");
-            Console.WriteLine($"📊 Documentos: {documentos.Count}");
-            Console.WriteLine($"📊 Términos únicos: {indice.Count}");
-            Console.WriteLine($"📊 Índice ordenado: {indice.EstaOrdenada}");
+            // 3. CALCULAR SIMILITUD PARA CADA DOCUMENTO
+            var iteradorDocs = new Iterador<Documento>(documentos);
+            int documentosProcessados = 0;
 
-            if (indice.Count > 0)
+            while (iteradorDocs.Siguiente())
             {
-                Console.WriteLine($"\n=== PRIMEROS 10 TÉRMINOS ===");
-                var iterador = new Iterador<Termino>(indice);
-                int contador = 0;
-                while (iterador.Siguiente() && contador < 10)
+                var documento = iteradorDocs.Current;
+                documentosProcessados++;
+
+                // Crear vector TF-IDF del documento
+                var vectorDoc = CrearVectorDocumento(documento);
+                if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
+                    continue;
+
+                // Calcular similitud coseno
+                double similitud = vectorConsulta.SimilitudCoseno(vectorDoc);
+
+                if (similitud > 0.001) // Umbral mínimo
                 {
-                    var termino = iterador.Current;
-                    Console.WriteLine(
-                        $"   {contador + 1}. '{termino.Palabra}' -> {termino.ListaDocumentos.Count} docs, IDF: {termino.Idf:F3}");
-                    contador++;
+                    var resultado = new ResultadoBusquedaVectorial(documento, similitud);
+                    resultados.Agregar(resultado);
                 }
             }
 
-            if (documentos.Count > 0)
+            Console.WriteLine($"📊 Procesados: {documentosProcessados} documentos, {resultados.Count} con similitud");
+
+            // 4. ORDENAR RESULTADOS POR SIMILITUD DESCENDENTE
+            if (resultados.Count > 0)
             {
-                Console.WriteLine($"\n=== DOCUMENTOS CARGADOS ===");
-                var iteradorDocs = new Iterador<Documento>(documentos);
-                while (iteradorDocs.Siguiente())
-                {
-                    var doc = iteradorDocs.Current;
-                    Console.WriteLine(
-                        $"   📄 {Path.GetFileName(doc.Ruta)} (ID: {doc.Id}, Términos: {doc.Frecuencias.Count})");
-                }
+                resultados.OrdenarDescendente(r => r.SimilitudCoseno);
             }
 
-            Console.WriteLine($"=== FIN ESTADÍSTICAS ===\n");
+            return resultados;
         }
 
         /// <summary>
-        /// BÚSQUEDA TRADICIONAL TF-IDF - CORREGIDA
+        /// Crear vector de consulta TF-IDF
         /// </summary>
-        public ListaDobleEnlazada<ResultadoBusqueda> Buscar(string consulta)
+        private Vector CrearVectorConsulta(List<string> tokens)
+        {
+            if (indiceTerminos.Count == 0)
+                return null;
+
+            // Vector con dimensión igual al vocabulario completo
+            var vector = new Vector(indiceTerminos.Count);
+
+            // Contar frecuencias en la consulta
+            var frecuenciasConsulta = ContarFrecuenciasLocales(tokens);
+
+            // Para cada término del vocabulario
+            var iterador = indiceTerminos.ObtenerIterador();
+            int indice = 0;
+
+            while (iterador.Siguiente())
+            {
+                var termino = iterador.Current;
+
+                // Buscar si el término aparece en la consulta
+                int frecuenciaEnConsulta = ObtenerFrecuenciaTermino(frecuenciasConsulta, termino.Palabra);
+
+                if (frecuenciaEnConsulta > 0)
+                {
+                    // TF-IDF = TF * IDF
+                    double tfIdf = frecuenciaEnConsulta * termino.Idf;
+                    vector[indice] = tfIdf;
+                }
+                else
+                {
+                    vector[indice] = 0.0;
+                }
+
+                indice++;
+            }
+
+            return vector;
+        }
+
+        /// <summary>
+        /// Crear vector TF-IDF para un documento específico
+        /// </summary>
+        private Vector CrearVectorDocumento(Documento documento)
+        {
+            if (indiceTerminos.Count == 0)
+                return null;
+
+            var vector = new Vector(indiceTerminos.Count);
+            var iterador = indiceTerminos.ObtenerIterador();
+            int indice = 0;
+
+            while (iterador.Siguiente())
+            {
+                var termino = iterador.Current;
+
+                // Obtener TF-IDF del término para este documento
+                double tfIdf = termino.ObtenerTfIdf(documento.Id);
+                vector[indice] = tfIdf;
+
+                indice++;
+            }
+
+            return vector;
+        }
+
+        /// <summary>
+        /// Obtener frecuencia de un término específico en el array
+        /// </summary>
+        private int ObtenerFrecuenciaTermino(TerminoFrecuencia[] frecuencias, string termino)
+        {
+            for (int i = 0; i < frecuencias.Length; i++)
+            {
+                if (string.Equals(frecuencias[i].Token, termino, StringComparison.OrdinalIgnoreCase))
+                    return frecuencias[i].Frecuencia;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Calcular métricas TF-IDF para todo el corpus
+        /// </summary>
+        public void CalcularMetricasTfIdf()
+        {
+            int totalDocumentos = documentos.Count;
+            if (totalDocumentos == 0) return;
+
+            Console.WriteLine($"📊 Calculando IDF para {indiceTerminos.Count} términos...");
+
+            var iterador = indiceTerminos.ObtenerIterador();
+            while (iterador.Siguiente())
+            {
+                iterador.Current.CalcularIdf(totalDocumentos);
+            }
+
+            Console.WriteLine("✅ Métricas TF-IDF calculadas");
+        }
+
+        /// <summary>
+        /// Búsqueda tradicional TF-IDF (método alternativo)
+        /// </summary>
+        public ListaDobleEnlazada<ResultadoBusqueda> BuscarTfIdf(string consulta)
         {
             var resultados = new ListaDobleEnlazada<ResultadoBusqueda>();
 
@@ -288,10 +398,9 @@ namespace PruebaRider.Servicios
             if (tokensConsulta.Count == 0)
                 return resultados;
 
-            Console.WriteLine($"🔍 Búsqueda TF-IDF para tokens: {string.Join(", ", tokensConsulta)}");
-
+            // Obtener términos únicos de la consulta
             var terminosConsulta = new ListaDobleEnlazada<Termino>();
-            var tokensUnicos = EliminarDuplicadosSinGenericos(tokensConsulta);
+            var tokensUnicos = EliminarDuplicados(tokensConsulta);
 
             foreach (var token in tokensUnicos)
             {
@@ -299,21 +408,13 @@ namespace PruebaRider.Servicios
                 if (termino != null)
                 {
                     terminosConsulta.Agregar(termino);
-                    Console.WriteLine(
-                        $"   ✅ Término encontrado: '{termino.Palabra}' en {termino.ListaDocumentos.Count} documentos");
-                }
-                else
-                {
-                    Console.WriteLine($"   ❌ Término NO encontrado: '{token}'");
                 }
             }
 
             if (terminosConsulta.Count == 0)
-            {
-                Console.WriteLine("❌ Ningún término de la consulta fue encontrado en el índice");
                 return resultados;
-            }
 
+            // Calcular puntuación para cada documento
             var iteradorDocs = new Iterador<Documento>(documentos);
             while (iteradorDocs.Siguiente())
             {
@@ -323,7 +424,7 @@ namespace PruebaRider.Servicios
                 var iteradorTerminos = new Iterador<Termino>(terminosConsulta);
                 while (iteradorTerminos.Siguiente())
                 {
-                    puntuacion += iteradorTerminos.Current.GetTfIdf(doc);
+                    puntuacion += iteradorTerminos.Current.ObtenerTfIdf(doc.Id);
                 }
 
                 if (puntuacion > 0)
@@ -331,68 +432,11 @@ namespace PruebaRider.Servicios
             }
 
             resultados.OrdenarDescendente(r => r.Score);
-            Console.WriteLine($"✅ Búsqueda TF-IDF completada: {resultados.Count} resultados");
             return resultados;
         }
 
         /// <summary>
-        /// ELIMINAR DUPLICADOS - SIN CAMBIOS
-        /// </summary>
-        private string[] EliminarDuplicadosSinGenericos(List<string> tokens)
-        {
-            var tokensTemp = new string[tokens.Count];
-            int cantidadUnicos = 0;
-
-            foreach (var token in tokens)
-            {
-                if (string.IsNullOrWhiteSpace(token)) continue;
-
-                string tokenNormalizado = token.ToLowerInvariant();
-                bool existe = false;
-
-                for (int i = 0; i < cantidadUnicos; i++)
-                {
-                    if (tokensTemp[i] == tokenNormalizado)
-                    {
-                        existe = true;
-                        break;
-                    }
-                }
-
-                if (!existe)
-                {
-                    tokensTemp[cantidadUnicos] = tokenNormalizado;
-                    cantidadUnicos++;
-                }
-            }
-
-            var resultado = new string[cantidadUnicos];
-            Array.Copy(tokensTemp, resultado, cantidadUnicos);
-
-            return resultado;
-        }
-
-        /// <summary>
-        /// AGREGAR TÉRMINO - SIN CAMBIOS
-        /// </summary>
-        private void AgregarTermino(string palabra, Documento documento)
-        {
-            var terminoExistente = BuscarTermino(palabra);
-
-            if (terminoExistente == null)
-            {
-                var nuevoTermino = new Termino(palabra);
-                nuevoTermino.AgregarDocumento(documento);
-                indice.Agregar(nuevoTermino);
-            }
-            else
-            {
-                terminoExistente.AgregarDocumento(documento);
-            }
-        }
-
-        /// <summary>
-        /// ACTUALIZAR ÍNDICE - CORREGIDO
+        /// Actualizar índice con nuevos documentos
         /// </summary>
         public async Task ActualizarIndice(string rutaDirectorio)
         {
@@ -430,14 +474,9 @@ namespace PruebaRider.Servicios
 
             if (agregados > 0)
             {
-                OrdenarIndice();
-                CalcularIdfGlobal();
-
-                if (buscadorVectorial != null)
-                {
-                    buscadorVectorial = new BuscadorVectorial(this);
-                }
-
+                // Reordenar con RadixSort
+                indiceTerminos.OrdenarRadix();
+                CalcularMetricasTfIdf();
                 Console.WriteLine($"✅ Agregados {agregados} documentos");
             }
             else
@@ -447,14 +486,59 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// GUARDAR EN ARCHIVO BINARIO - SIN CAMBIOS
+        /// Eliminar duplicados sin usar genéricos prohibidos
+        /// </summary>
+        private string[] EliminarDuplicados(List<string> tokens)
+        {
+            var tokensTemp = new string[tokens.Count];
+            int cantidadUnicos = 0;
+
+            foreach (var token in tokens)
+            {
+                if (string.IsNullOrWhiteSpace(token)) continue;
+
+                string tokenNormalizado = token.ToLowerInvariant();
+                bool existe = false;
+
+                for (int i = 0; i < cantidadUnicos; i++)
+                {
+                    if (tokensTemp[i] == tokenNormalizado)
+                    {
+                        existe = true;
+                        break;
+                    }
+                }
+
+                if (!existe)
+                {
+                    tokensTemp[cantidadUnicos] = tokenNormalizado;
+                    cantidadUnicos++;
+                }
+            }
+
+            var resultado = new string[cantidadUnicos];
+            Array.Copy(tokensTemp, resultado, cantidadUnicos);
+            return resultado;
+        }
+
+        /// <summary>
+        /// Guardar índice en archivo binario
         /// </summary>
         public void GuardarEnArchivoBinario(string rutaArchivo)
         {
             try
             {
-                Console.WriteLine("💾 Guardando índice...");
-                serializador.GuardarIndice(rutaArchivo, indice, documentos);
+                Console.WriteLine("💾 Guardando índice con vector ordenado...");
+
+                // Convertir vector ordenado a lista para serialización
+                var listaTerminos = new ListaDobleEnlazada<Termino>();
+                var iterador = indiceTerminos.ObtenerIterador();
+                while (iterador.Siguiente())
+                {
+                    listaTerminos.Agregar(iterador.Current);
+                }
+
+                serializador.GuardarIndice(rutaArchivo, listaTerminos, documentos);
                 Console.WriteLine($"✅ Índice guardado en {rutaArchivo}");
             }
             catch (Exception ex)
@@ -465,7 +549,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// CARGAR DESDE ARCHIVO BINARIO - SIN CAMBIOS
+        /// Cargar índice desde archivo binario
         /// </summary>
         public void CargarDesdeArchivoBinario(string rutaArchivo)
         {
@@ -474,21 +558,29 @@ namespace PruebaRider.Servicios
                 Console.WriteLine($"📂 Cargando índice desde {rutaArchivo}...");
                 var (indiceNuevo, documentosNuevos) = serializador.CargarIndice(rutaArchivo);
 
-                indice = indiceNuevo;
-                documentos = documentosNuevos;
-
-                contadorDocumentos = 0;
-                var iterador = new Iterador<Documento>(documentos);
+                // Convertir lista a vector ordenado
+                indiceTerminos = new VectorOrdenado<Termino>();
+                var iterador = new Iterador<Termino>(indiceNuevo);
                 while (iterador.Siguiente())
                 {
-                    if (iterador.Current.Id > contadorDocumentos)
-                        contadorDocumentos = iterador.Current.Id;
+                    indiceTerminos.Agregar(iterador.Current);
                 }
 
-                OrdenarIndice();
-                buscadorVectorial = new BuscadorVectorial(this);
+                // Aplicar RadixSort al cargar
+                indiceTerminos.OrdenarRadix();
 
-                Console.WriteLine($"✅ Índice cargado: {documentos.Count} docs, {indice.Count} términos");
+                documentos = documentosNuevos;
+
+                // Recalcular contador
+                contadorDocumentos = 0;
+                var iteradorDocs = new Iterador<Documento>(documentos);
+                while (iteradorDocs.Siguiente())
+                {
+                    if (iteradorDocs.Current.Id > contadorDocumentos)
+                        contadorDocumentos = iteradorDocs.Current.Id;
+                }
+
+                Console.WriteLine($"✅ Índice cargado: {documentos.Count} docs, {indiceTerminos.Count} términos");
             }
             catch (Exception ex)
             {
@@ -498,58 +590,13 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// ORDENAR ÍNDICE - SIN CAMBIOS
-        /// </summary>
-        private void OrdenarIndice()
-        {
-            if (indice.Count > 1)
-            {
-                Console.WriteLine($"🔤 Ordenando {indice.Count} términos...");
-                indice.OrdenarCon(CompararTerminos);
-                Console.WriteLine("✅ Índice ordenado");
-            }
-        }
-
-        /// <summary>
-        /// CALCULAR IDF GLOBAL - SIN CAMBIOS
-        /// </summary>
-        public void CalcularIdfGlobal()
-        {
-            int totalDocumentos = documentos.Count;
-            if (totalDocumentos == 0) return;
-
-            Console.WriteLine($"📊 Calculando IDF para {indice.Count} términos...");
-
-            var iterador = new Iterador<Termino>(indice);
-            while (iterador.Siguiente())
-            {
-                iterador.Current.CalcularIdf(totalDocumentos);
-            }
-
-            Console.WriteLine("✅ Cálculo IDF completado");
-        }
-
-        /// <summary>
-        /// COMPARAR TÉRMINOS - SIN CAMBIOS
-        /// </summary>
-        private int CompararTerminos(Termino t1, Termino t2)
-        {
-            if (t1 == null && t2 == null) return 0;
-            if (t1 == null) return -1;
-            if (t2 == null) return 1;
-
-            return string.Compare(t1.Palabra, t2.Palabra, StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// LIMPIAR - SIN CAMBIOS
+        /// Limpiar índice
         /// </summary>
         public void Limpiar()
         {
-            indice.Limpiar();
+            indiceTerminos.Limpiar();
             documentos.Limpiar();
             contadorDocumentos = 0;
-            buscadorVectorial = null;
 
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -557,165 +604,54 @@ namespace PruebaRider.Servicios
             Console.WriteLine("🧹 Índice limpiado");
         }
 
-        // GETTERS - SIN CAMBIOS
-        public int GetCantidadDocumentos() => documentos.Count;
-        public ListaDobleEnlazada<Documento> GetDocumentos() => documentos;
-        public ListaDobleEnlazada<Termino> GetIndice() => indice;
-
         /// <summary>
-        /// OBTENER ESTADÍSTICAS - SIN CAMBIOS
+        /// Obtener estadísticas del índice
         /// </summary>
-        public EstadisticasIndiceMejoradas ObtenerEstadisticas()
+        public EstadisticasIndice ObtenerEstadisticas()
         {
-            int memoriaEstimadaKB = EstimarUsoMemoria();
-
-            return new EstadisticasIndiceMejoradas
+            return new EstadisticasIndice
             {
                 CantidadDocumentos = documentos.Count,
-                CantidadTerminos = indice.Count,
-                IndiceOrdenado = indice.EstaOrdenada,
-                BuscadorVectorialActivo = buscadorVectorial != null,
-                MemoriaEstimadaKB = memoriaEstimadaKB,
-                PromedioTerminosPorDocumento = documentos.Count > 0 ? (double)indice.Count / documentos.Count : 0.0
+                CantidadTerminos = indiceTerminos.Count,
+                IndiceOrdenado = indiceTerminos.EstaOrdenado,
+                MemoriaEstimadaKB = EstimarUsoMemoria(),
+                PromedioTerminosPorDocumento =
+                    documentos.Count > 0 ? (double)indiceTerminos.Count / documentos.Count : 0.0
             };
         }
 
         /// <summary>
-        /// ESTIMAR USO MEMORIA - SIN CAMBIOS
+        /// Estimar uso de memoria
         /// </summary>
         private int EstimarUsoMemoria()
         {
             int memoria = 0;
-            memoria += indice.Count * 64;
-            memoria += documentos.Count * 256;
-
-            var iterador = new Iterador<Termino>(indice);
-            while (iterador.Siguiente())
-            {
-                var termino = iterador.Current;
-                memoria += termino.VectorDocumentosIds.Dimension * 8;
-            }
-
-            return memoria / 1024;
+            memoria += indiceTerminos.Count * 128; // Términos
+            memoria += documentos.Count * 256; // Documentos
+            return memoria / 1024; // KB
         }
 
-        /// <summary>
-        /// RECREAR ÍNDICE OPTIMIZADO - NUEVO MÉTODO
-        /// </summary>
-        public async Task RecrerarIndiceOptimizado(string rutaDirectorio)
-        {
-            Console.WriteLine("🔨 Recreando índice completo...");
-
-            try
-            {
-                await CrearDesdeRuta(rutaDirectorio);
-
-                var stats = ObtenerEstadisticas();
-                Console.WriteLine("✅ Recreación completada:");
-                Console.WriteLine($"   📊 Documentos: {stats.CantidadDocumentos}");
-                Console.WriteLine($"   📊 Términos: {stats.CantidadTerminos}");
-                Console.WriteLine($"   💾 Memoria: {stats.MemoriaEstimadaKB} KB");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error en recreación: {ex.Message}");
-                throw;
-            }
-        }
+        // Getters
+        public int GetCantidadDocumentos() => documentos.Count;
+        public ListaDobleEnlazada<Documento> GetDocumentos() => documentos;
+        public VectorOrdenado<Termino> GetIndiceTerminos() => indiceTerminos;
     }
 
     /// <summary>
-    /// NUEVA ESTRATEGIA CONSERVADORA para eliminar términos frecuentes
+    /// Estadísticas del índice
     /// </summary>
-    public class EliminarTerminosFrecuentesConservadora : IReducirTerminosStrategy
-    {
-        private ListaDobleEnlazada<Termino> indice;
-        private int totalDocumentos;
-
-        public string NombreEstrategia => "Eliminar Términos Muy Frecuentes (Conservador)";
-        public string Descripcion => "Elimina solo términos que aparecen en más del 80% de documentos";
-
-        public EliminarTerminosFrecuentesConservadora(ListaDobleEnlazada<Termino> indice, int totalDocumentos)
-        {
-            this.indice = indice ?? throw new ArgumentNullException(nameof(indice));
-            this.totalDocumentos = totalDocumentos;
-        }
-
-        public void Aplicar(int percentil)
-        {
-            if (percentil <= 0 || percentil >= 100) return;
-            if (indice.Count == 0 || totalDocumentos == 0) return;
-
-            // Calcular umbral MUY conservador
-            double umbralFrecuenciaRelativa = 0.8; // Solo eliminar términos que están en más del 80% de documentos
-            int umbralAbsoluto = (int)(totalDocumentos * umbralFrecuenciaRelativa);
-
-            Console.WriteLine($"🔍 Aplicando filtro conservador: eliminando términos en >{umbralAbsoluto} documentos");
-
-            var terminosAMantener = new ListaDobleEnlazada<Termino>();
-            int eliminados = 0;
-
-            var iterador = new Iterador<Termino>(indice);
-            while (iterador.Siguiente())
-            {
-                var termino = iterador.Current;
-                int frecuenciaDocumental = termino.ListaDocumentos.Count;
-
-                if (frecuenciaDocumental <= umbralAbsoluto)
-                {
-                    terminosAMantener.Agregar(termino);
-                }
-                else
-                {
-                    Console.WriteLine($"   🗑️ Eliminando término muy frecuente: '{termino.Palabra}' ({frecuenciaDocumental} docs)");
-                    eliminados++;
-                }
-            }
-
-            // Limitar eliminación al percentil especificado para mayor seguridad
-            int maxEliminar = (indice.Count * percentil) / 100;
-            if (eliminados > maxEliminar)
-            {
-                Console.WriteLine($"⚠️ Límite de seguridad: solo se eliminarán {maxEliminar} términos de {eliminados} candidatos");
-                // En este caso más conservador, simplemente respetamos el límite
-            }
-
-            // Actualizar índice
-            ActualizarIndice(terminosAMantener);
-            Console.WriteLine($"✅ Filtrado conservador completado: eliminados {eliminados} términos muy frecuentes");
-        }
-
-        private void ActualizarIndice(ListaDobleEnlazada<Termino> nuevosTerminos)
-        {
-            indice.Limpiar();
-            var iterador = new Iterador<Termino>(nuevosTerminos);
-            while (iterador.Siguiente())
-            {
-                indice.Agregar(iterador.Current);
-            }
-        }
-    }
-
-    /// <summary>
-    /// ESTADÍSTICAS MEJORADAS - SIN CAMBIOS
-    /// </summary>
-    public class EstadisticasIndiceMejoradas
+    public class EstadisticasIndice
     {
         public int CantidadDocumentos { get; set; }
         public int CantidadTerminos { get; set; }
         public bool IndiceOrdenado { get; set; }
-        public bool BuscadorVectorialActivo { get; set; }
         public int MemoriaEstimadaKB { get; set; }
         public double PromedioTerminosPorDocumento { get; set; }
 
         public override string ToString()
         {
-            return $"📊 Documentos: {CantidadDocumentos} | " +
-                   $"Términos: {CantidadTerminos} | " +
-                   $"Ordenado: {(IndiceOrdenado ? "✅ Sí (O(log n))" : "❌ No (O(n))")} | " +
-                   $"🎯 Vector: {(BuscadorVectorialActivo ? "✅ Activa" : "❌ Inactiva")} | " +
-                   $"💾 RAM: ~{MemoriaEstimadaKB} KB | " +
-                   $"📈 Promedio: {PromedioTerminosPorDocumento:F1} términos/doc";
+            return $"📊 Docs: {CantidadDocumentos} | Términos: {CantidadTerminos} | " +
+                   $"Ordenado: {(IndiceOrdenado ? "✅" : "❌")} | RAM: {MemoriaEstimadaKB} KB";
         }
     }
 }
