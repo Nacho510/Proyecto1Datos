@@ -1,4 +1,5 @@
-﻿using PruebaRider.Estructura.Nodo;
+﻿using System.IO;
+using PruebaRider.Estructura.Nodo;
 
 namespace PruebaRider.Modelo
 {

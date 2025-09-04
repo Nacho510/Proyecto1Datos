@@ -1,15 +1,43 @@
-﻿using PruebaRider.Estructura.Nodo;
+﻿using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using PruebaRider.Servicios;
+using PruebaRider.Estructura.Nodo;
 
 namespace PruebaRider.UI
 {
     /// <summary>
-    /// Interfaz reestructurada y simplificada
-    /// - Enfocada en la funcionalidad core
-    /// - Muestra claramente RadixSort y búsqueda vectorial
-    /// - Sin complejidad innecesaria
+    /// Modelo de datos para los resultados de búsqueda
     /// </summary>
-    public class Interfaz
+    public class ResultadoViewModel : INotifyPropertyChanged
+    {
+        public int Posicion { get; set; }
+        public string NombreArchivo { get; set; }
+        public string SimilitudTexto { get; set; }
+        public double SimilitudValor { get; set; }
+        public string Score { get; set; }
+        public int DocumentoId { get; set; }
+        public string UrlCodificada { get; set; }
+        public Brush ColorFondo { get; set; }
+        public ResultadoBusquedaVectorial ResultadoOriginal { get; set; }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+    }
+
+    /// <summary>
+    /// Ventana principal con diseño moderno
+    /// </summary>
+    public partial class MainWindow : Window
     {
         private readonly GestorIndice gestor;
 
@@ -18,446 +46,877 @@ namespace PruebaRider.UI
 
         private readonly string ARCHIVO_INDICE = @"indice_radix.bin";
 
-        public Interfaz()
+        public ObservableCollection<ResultadoViewModel> Resultados { get; set; }
+        public ObservableCollection<string> LogMensajes { get; set; }
+
+        public MainWindow()
         {
+            InitializeComponent();
             gestor = GestorIndice.ObtenerInstancia();
+            Resultados = new ObservableCollection<ResultadoViewModel>();
+            LogMensajes = new ObservableCollection<string>();
+
+            DataContext = this;
+            _ = InicializarSistemaAsync();
         }
 
-        /// <summary>
-        /// Menú principal simplificado
-        /// </summary>
-        public async Task MenuPrincipalAsync()
+        private void InitializeComponent()
         {
-            Console.Clear();
-            MostrarBienvenida();
+            // Configuración de la ventana
+            Title = "🚀 Motor de Búsqueda Vectorial - RadixSort + Similitud Coseno";
+            Width = 1400;
+            Height = 900;
+            MinWidth = 1200;
+            MinHeight = 700;
+            WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
-            // Inicialización automática
-            await InicializarSistema();
+            // Crear el diseño principal
+            var mainGrid = new Grid();
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Search
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Buttons
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(2, GridUnitType.Star) }); // Results
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Log
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Status
 
-            // Loop del menú principal
-            while (true)
+            Content = mainGrid;
+
+            // HEADER
+            CreateHeader(mainGrid);
+
+            // BÚSQUEDA
+            CreateSearchSection(mainGrid);
+
+            // BOTONES
+            CreateButtonSection(mainGrid);
+
+            // RESULTADOS
+            CreateResultsSection(mainGrid);
+
+            // LOG
+            CreateLogSection(mainGrid);
+
+            // STATUS BAR
+            CreateStatusBar(mainGrid);
+
+            // Aplicar tema oscuro/moderno
+            ApplyModernTheme();
+        }
+
+        private void CreateHeader(Grid mainGrid)
+        {
+            var headerPanel = new StackPanel
             {
-                MostrarMenuPrincipal();
-                string opcion = LeerOpcion();
-
-                switch (opcion.ToLower())
+                Background = new LinearGradientBrush
                 {
-                    case "1":
-                    case "buscar":
-                        await EjecutarBusquedaVectorial();
-                        break;
-                    case "2":
-                    case "crear":
-                        await CrearIndiceCompleto();
-                        break;
-                    case "3":
-                    case "estadisticas":
-                        MostrarEstadisticas();
-                        break;
-                    case "4":
-                    case "guardar":
-                        GuardarIndice();
-                        break;
-                    case "5":
-                    case "validar":
-                        ValidarSistema();
-                        break;
-                    case "0":
-                    case "salir":
-                        MostrarDespedida();
-                        return;
-                    default:
-                        MostrarError("❌ Opción no válida");
-                        break;
+                    StartPoint = new Point(0, 0),
+                    EndPoint = new Point(1, 1),
+                    GradientStops = new GradientStopCollection
+                    {
+                        new GradientStop(Color.FromRgb(41, 128, 185), 0),
+                        new GradientStop(Color.FromRgb(52, 152, 219), 1)
+                    }
+                },
+                Orientation = Orientation.Vertical,
+                Margin = new Thickness(0, 0, 0, 20)
+            };
+
+            var titulo = new TextBlock
+            {
+                Text = "🔍 Motor de Búsqueda Vectorial Avanzado",
+                FontSize = 28,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 20, 0, 5)
+            };
+
+            var subtitulo = new TextBlock
+            {
+                Text = "Vector Ordenado • RadixSort • Similitud Coseno • URLs Codificadas",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Color.FromRgb(236, 240, 241)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 20)
+            };
+
+            headerPanel.Children.Add(titulo);
+            headerPanel.Children.Add(subtitulo);
+
+            Grid.SetRow(headerPanel, 0);
+            mainGrid.Children.Add(headerPanel);
+        }
+
+        private void CreateSearchSection(Grid mainGrid)
+        {
+            var searchPanel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)),
+                CornerRadius = new CornerRadius(10),
+                Margin = new Thickness(20, 0, 20, 20),
+                Padding = new Thickness(20)
+            };
+
+            var searchGrid = new Grid();
+            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // TextBox de búsqueda
+            var txtBusqueda = new TextBox
+            {
+                Name = "txtBusqueda",
+                FontSize = 16,
+                Padding = new Thickness(15, 12, 15, 12),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(189, 195, 199)),
+                BorderThickness = new Thickness(2),
+                Background = Brushes.White,
+                Text = "Ingrese términos de búsqueda..."
+            };
+
+            txtBusqueda.GotFocus += (s, e) =>
+            {
+                if (txtBusqueda.Text == "Ingrese términos de búsqueda...")
+                {
+                    txtBusqueda.Text = "";
+                    txtBusqueda.Foreground = Brushes.Black;
                 }
+            };
 
-                Console.WriteLine("\n⏸️ Presione Enter para continuar...");
-                Console.ReadLine();
-                Console.Clear();
-            }
-        }
-
-        /// <summary>
-        /// Bienvenida enfocada en las características principales
-        /// </summary>
-        private void MostrarBienvenida()
-        {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("╔════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║              🚀 MOTOR DE BÚSQUEDA AVANZADO            ║");
-            Console.WriteLine("║         Vector Ordenado + RadixSort + Coseno          ║");
-            Console.WriteLine("╚════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
-
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("🎯 CARACTERÍSTICAS IMPLEMENTADAS:");
-            Console.WriteLine("   ✅ Vector ordenado para el índice invertido");
-            Console.WriteLine("   ✅ Algoritmo RadixSort para ordenamiento de términos");
-            Console.WriteLine("   ✅ Búsqueda vectorial con similitud coseno perfecta");
-            Console.WriteLine("   ✅ Estructuras de datos propias (sin genéricos)");
-            Console.WriteLine("   ✅ Optimización de memoria y tiempo O(log n)");
-            Console.ResetColor();
-            Console.WriteLine();
-
-            Console.WriteLine($"📁 Directorio: {DIRECTORIO_DOCUMENTOS}");
-            Console.WriteLine();
-        }
-
-        /// <summary>
-        /// Inicializar sistema automáticamente
-        /// </summary>
-        private async Task InicializarSistema()
-        {
-            Console.WriteLine("🔄 Inicializando sistema...");
-
-            // Verificar directorio
-            if (!Directory.Exists(DIRECTORIO_DOCUMENTOS))
+            txtBusqueda.LostFocus += (s, e) =>
             {
-                MostrarError($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
-                MostrarInfo("💡 Cree el directorio y agregue archivos .txt");
-                return;
-            }
-
-            // Intentar cargar índice existente
-            if (File.Exists(ARCHIVO_INDICE))
-            {
-                Console.WriteLine("📂 Cargando índice existente...");
-                if (gestor.CargarIndice(ARCHIVO_INDICE))
+                if (string.IsNullOrWhiteSpace(txtBusqueda.Text))
                 {
-                    MostrarExito("✅ Índice cargado con RadixSort");
-                    MostrarEstadisticasResumen();
+                    txtBusqueda.Text = "Ingrese términos de búsqueda...";
+                    txtBusqueda.Foreground = Brushes.Gray;
+                }
+            };
+
+            txtBusqueda.KeyDown += async (s, e) =>
+            {
+                if (e.Key == Key.Enter)
+                    await EjecutarBusquedaAsync();
+            };
+
+            // Botón de búsqueda
+            var btnBuscar = new Button
+            {
+                Content = "🔍 Buscar",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Padding = new Thickness(20, 12, 20, 12),
+                Margin = new Thickness(15, 0, 0, 0),
+                Background = new LinearGradientBrush
+                {
+                    StartPoint = new Point(0, 0),
+                    EndPoint = new Point(0, 1),
+                    GradientStops = new GradientStopCollection
+                    {
+                        new GradientStop(Color.FromRgb(46, 204, 113), 0),
+                        new GradientStop(Color.FromRgb(39, 174, 96), 1)
+                    }
+                },
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand
+            };
+
+            btnBuscar.Click += async (s, e) => await EjecutarBusquedaAsync();
+
+            Grid.SetColumn(txtBusqueda, 0);
+            Grid.SetColumn(btnBuscar, 1);
+
+            searchGrid.Children.Add(txtBusqueda);
+            searchGrid.Children.Add(btnBuscar);
+            searchPanel.Child = searchGrid;
+
+            Grid.SetRow(searchPanel, 1);
+            mainGrid.Children.Add(searchPanel);
+
+            // Registrar el TextBox para acceso posterior
+            RegisterName("txtBusqueda", txtBusqueda);
+        }
+
+        private void CreateButtonSection(Grid mainGrid)
+        {
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 20)
+            };
+
+            var botones = new[]
+            {
+                new
+                {
+                    Texto = "🔨 Crear Índice", Color = Color.FromRgb(230, 126, 34),
+                    Handler = new Func<object, RoutedEventArgs, Task>(async (s, e) => await CrearIndiceAsync())
+                },
+                new
+                {
+                    Texto = "📊 Estadísticas", Color = Color.FromRgb(241, 196, 15), Handler =
+                        new Func<object, RoutedEventArgs, Task>((s, e) =>
+                        {
+                            MostrarEstadisticas();
+                            return Task.CompletedTask;
+                        })
+                },
+                new
+                {
+                    Texto = "💾 Guardar", Color = Color.FromRgb(155, 89, 182), Handler =
+                        new Func<object, RoutedEventArgs, Task>((s, e) =>
+                        {
+                            GuardarIndice();
+                            return Task.CompletedTask;
+                        })
+                },
+                new
+                {
+                    Texto = "✅ Validar", Color = Color.FromRgb(26, 188, 156), Handler =
+                        new Func<object, RoutedEventArgs, Task>((s, e) =>
+                        {
+                            ValidarSistema();
+                            return Task.CompletedTask;
+                        })
+                }
+            };
+
+            foreach (var boton in botones)
+            {
+                var btn = new Button
+                {
+                    Content = boton.Texto,
+                    FontSize = 14,
+                    FontWeight = FontWeights.SemiBold,
+                    Padding = new Thickness(20, 10, 20, 10),
+                    Margin = new Thickness(10, 0, 10, 0),
+                    Background = new SolidColorBrush(boton.Color),
+                    Foreground = Brushes.White,
+                    BorderThickness = new Thickness(0),
+                    Cursor = Cursors.Hand
+                };
+
+                btn.Click += async (s, e) => await boton.Handler(s, e);
+                buttonPanel.Children.Add(btn);
+            }
+
+            Grid.SetRow(buttonPanel, 2);
+            mainGrid.Children.Add(buttonPanel);
+        }
+
+        private void CreateResultsSection(Grid mainGrid)
+        {
+            var resultsPanel = new Border
+            {
+                Background = Brushes.White,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(189, 195, 199)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Margin = new Thickness(20, 0, 20, 20)
+            };
+
+            var resultsGrid = new Grid();
+            resultsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            resultsGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            // Header de resultados
+            var headerPanel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(52, 73, 94)),
+                Padding = new Thickness(20, 15, 20, 15)
+            };
+
+            var headerText = new TextBlock
+            {
+                Text = "📄 Resultados de Búsqueda (Clic en URL para copiar)",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White
+            };
+
+            headerPanel.Child = headerText;
+            Grid.SetRow(headerPanel, 0);
+            resultsGrid.Children.Add(headerPanel);
+
+            // DataGrid para resultados
+            var dataGrid = new DataGrid
+            {
+                Name = "dataGridResultados",
+                AutoGenerateColumns = false,
+                CanUserAddRows = false,
+                CanUserDeleteRows = false,
+                CanUserResizeRows = false,
+                SelectionMode = DataGridSelectionMode.Single,
+                GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                Background = Brushes.White,
+                AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 249, 250)),
+                FontSize = 12
+            };
+
+            // Configurar columnas
+            dataGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Pos",
+                Binding = new Binding("Posicion"),
+                Width = 50,
+                IsReadOnly = true
+            });
+
+            dataGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Documento",
+                Binding = new Binding("NombreArchivo"),
+                Width = 200,
+                IsReadOnly = true
+            });
+
+            dataGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Similitud",
+                Binding = new Binding("SimilitudTexto"),
+                Width = 100,
+                IsReadOnly = true
+            });
+
+            dataGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Score",
+                Binding = new Binding("Score"),
+                Width = 100,
+                IsReadOnly = true
+            });
+
+            dataGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "ID",
+                Binding = new Binding("DocumentoId"),
+                Width = 60,
+                IsReadOnly = true
+            });
+
+            var urlColumn = new DataGridTemplateColumn
+            {
+                Header = "URL Codificada",
+                Width = 300
+            };
+
+            var urlTemplate = new DataTemplate();
+            var factory = new FrameworkElementFactory(typeof(Button));
+            factory.SetValue(Button.ContentProperty, "📋 Copiar URL");
+            factory.SetValue(Button.BackgroundProperty, new SolidColorBrush(Color.FromRgb(52, 152, 219)));
+            factory.SetValue(Button.ForegroundProperty, Brushes.White);
+            factory.SetValue(Button.BorderThicknessProperty, new Thickness(0));
+            factory.SetValue(Button.PaddingProperty, new Thickness(10, 5, 10, 5));
+            factory.SetValue(Button.CursorProperty, Cursors.Hand);
+            factory.AddHandler(Button.ClickEvent, new RoutedEventHandler(CopiarUrl));
+
+            urlTemplate.VisualTree = factory;
+            urlColumn.CellTemplate = urlTemplate;
+            dataGrid.Columns.Add(urlColumn);
+
+            dataGrid.ItemsSource = Resultados;
+
+            Grid.SetRow(dataGrid, 1);
+            resultsGrid.Children.Add(dataGrid);
+
+            resultsPanel.Child = resultsGrid;
+            Grid.SetRow(resultsPanel, 3);
+            mainGrid.Children.Add(resultsPanel);
+
+            RegisterName("dataGridResultados", dataGrid);
+        }
+
+        private void CreateLogSection(Grid mainGrid)
+        {
+            var logPanel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(44, 62, 80)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(52, 73, 94)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Margin = new Thickness(20, 0, 20, 20)
+            };
+
+            var logGrid = new Grid();
+            logGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            logGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            // Header del log
+            var logHeaderPanel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(52, 73, 94)),
+                Padding = new Thickness(20, 10, 20, 10)
+            };
+
+            var logHeaderText = new TextBlock
+            {
+                Text = "📊 Log del Sistema",
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White
+            };
+
+            logHeaderPanel.Child = logHeaderText;
+            Grid.SetRow(logHeaderPanel, 0);
+            logGrid.Children.Add(logHeaderPanel);
+
+            // ListBox para el log
+            var logListBox = new ListBox
+            {
+                Name = "logListBox",
+                Background = new SolidColorBrush(Color.FromRgb(44, 62, 80)),
+                Foreground = new SolidColorBrush(Color.FromRgb(236, 240, 241)),
+                BorderThickness = new Thickness(0),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Padding = new Thickness(10),
+                ItemsSource = LogMensajes
+            };
+
+            // Scroll automático
+            logListBox.Items.CurrentChanged += (s, e) =>
+            {
+                if (logListBox.Items.Count > 0)
+                    logListBox.ScrollIntoView(logListBox.Items[logListBox.Items.Count - 1]);
+            };
+
+            Grid.SetRow(logListBox, 1);
+            logGrid.Children.Add(logListBox);
+
+            logPanel.Child = logGrid;
+            Grid.SetRow(logPanel, 4);
+            mainGrid.Children.Add(logPanel);
+
+            RegisterName("logListBox", logListBox);
+        }
+
+        private void CreateStatusBar(Grid mainGrid)
+        {
+            var statusPanel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(52, 73, 94)),
+                Padding = new Thickness(20, 10, 20, 10)
+            };
+
+            var statusText = new TextBlock
+            {
+                Name = "statusText",
+                Text = "🟡 Inicializando sistema...",
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.SemiBold
+            };
+
+            statusPanel.Child = statusText;
+            Grid.SetRow(statusPanel, 5);
+            mainGrid.Children.Add(statusPanel);
+
+            RegisterName("statusText", statusText);
+        }
+
+        private void ApplyModernTheme()
+        {
+            Background = new SolidColorBrush(Color.FromRgb(250, 250, 250));
+
+            var style = new Style(typeof(Button));
+            style.Setters.Add(new Setter(Button.TemplateProperty, CreateModernButtonTemplate()));
+            Resources.Add(typeof(Button), style);
+        }
+
+        private ControlTemplate CreateModernButtonTemplate()
+        {
+            var template = new ControlTemplate(typeof(Button));
+
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.Name = "border";
+            border.SetBinding(Border.BackgroundProperty, new Binding("Background")
+            {
+                RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent)
+            });
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(5));
+            border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
+
+            var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            contentPresenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            contentPresenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+
+            border.AppendChild(contentPresenter);
+            template.VisualTree = border;
+
+            return template;
+        }
+
+        private async Task InicializarSistemaAsync()
+        {
+            LogInfo("🔄 Inicializando sistema...");
+            ActualizarEstado("Inicializando...");
+
+            try
+            {
+                if (!Directory.Exists(DIRECTORIO_DOCUMENTOS))
+                {
+                    LogError($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
+                    LogInfo("💡 Cree el directorio y agregue archivos .txt");
+                    ActualizarEstado("Error: Directorio no encontrado");
                     return;
                 }
-            }
 
-            // Crear nuevo índice si no existe
-            Console.WriteLine("🔨 Creando índice nuevo...");
-            if (await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS))
-            {
-                MostrarExito("✅ Índice creado con RadixSort");
-                gestor.GuardarIndice(ARCHIVO_INDICE);
-                MostrarEstadisticasResumen();
+                if (File.Exists(ARCHIVO_INDICE))
+                {
+                    LogInfo("📂 Cargando índice existente...");
+                    if (gestor.CargarIndice(ARCHIVO_INDICE))
+                    {
+                        LogSuccess("✅ Índice cargado con RadixSort");
+                        MostrarEstadisticasResumen();
+                        ActualizarEstado("Índice cargado - Listo para búsquedas");
+                        return;
+                    }
+                }
+
+                LogInfo("🔨 Creando índice nuevo...");
+                if (await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS))
+                {
+                    LogSuccess("✅ Índice creado con RadixSort");
+                    gestor.GuardarIndice(ARCHIVO_INDICE);
+                    LogSuccess($"💾 Guardado como {ARCHIVO_INDICE}");
+                    MostrarEstadisticasResumen();
+                    ActualizarEstado("Sistema listo - RadixSort activo");
+                }
+                else
+                {
+                    LogError("❌ Error al crear índice inicial");
+                    ActualizarEstado("Error en inicialización");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MostrarError("❌ Error al crear índice inicial");
+                LogError($"❌ Error: {ex.Message}");
+                ActualizarEstado("Error crítico");
             }
         }
 
-        /// <summary>
-        /// FUNCIÓN PRINCIPAL: Búsqueda vectorial
-        /// </summary>
-        private async Task EjecutarBusquedaVectorial()
+        private async Task EjecutarBusquedaAsync()
         {
+            var txtBusqueda = FindName("txtBusqueda") as TextBox;
+            string consulta = txtBusqueda?.Text.Trim();
+
+            if (string.IsNullOrEmpty(consulta) || consulta == "Ingrese términos de búsqueda...")
+            {
+                MessageBox.Show("Por favor ingrese términos de búsqueda", "Búsqueda",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (gestor.IndiceEstaVacio())
             {
-                MostrarError("❌ No hay índice. Creando automáticamente...");
-                await CrearIndiceCompleto();
+                LogError("❌ No hay índice. Creando automáticamente...");
+                await CrearIndiceAsync();
                 return;
             }
 
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("🔍 BÚSQUEDA VECTORIAL CON SIMILITUD COSENO");
-            Console.WriteLine("════════════════════════════════════════");
-            Console.ResetColor();
+            LogInfo($"🔍 Búsqueda vectorial: '{consulta}'");
+            ActualizarEstado("Ejecutando búsqueda vectorial...");
 
-            Console.WriteLine();
-            Console.WriteLine("💡 Ejemplos de búsqueda:");
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine("   • 'algoritmo ordenamiento'");
-            Console.WriteLine("   • 'estructura datos'");
-            Console.WriteLine("   • 'búsqueda binaria'");
-            Console.ResetColor();
+            Resultados.Clear();
 
-            Console.WriteLine();
-            Console.Write("➤ Ingrese su consulta: ");
-            Console.ForegroundColor = ConsoleColor.White;
-            string consulta = Console.ReadLine() ?? "";
-            Console.ResetColor();
-
-            if (string.IsNullOrWhiteSpace(consulta))
+            try
             {
-                MostrarError("❌ Consulta vacía");
-                return;
+                var inicio = DateTime.Now;
+                var resultados = gestor.BuscarConSimilitudCoseno(consulta);
+                var duracion = DateTime.Now - inicio;
+
+                MostrarResultados(resultados, consulta, duracion);
+                ActualizarEstado(
+                    $"Búsqueda completada: {resultados.Count} resultados en {duracion.TotalMilliseconds:F0}ms");
             }
-
-            Console.WriteLine();
-            Console.WriteLine($"🔍 Buscando: '{consulta}'");
-            Console.WriteLine("⚡ Procesando con RadixSort optimizado...");
-
-            // Ejecutar búsqueda
-            var inicio = DateTime.Now;
-            var resultados = gestor.BuscarConSimilitudCoseno(consulta);
-            var duracion = DateTime.Now - inicio;
-
-            // Mostrar resultados
-            MostrarResultados(resultados, consulta, duracion);
+            catch (Exception ex)
+            {
+                LogError($"❌ Error en búsqueda: {ex.Message}");
+                ActualizarEstado("Error en búsqueda");
+            }
         }
 
-        /// <summary>
-        /// Mostrar resultados de búsqueda
-        /// </summary>
         private void MostrarResultados(ListaDobleEnlazada<ResultadoBusquedaVectorial> resultados, string consulta,
             TimeSpan duracion)
         {
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"📊 RESULTADOS - {resultados.Count} encontrados");
-            Console.WriteLine("═══════════════════════════════════════");
-            Console.ResetColor();
-
-            Console.WriteLine($"⏱️ Tiempo: {duracion.TotalMilliseconds:F2} ms");
-            Console.WriteLine($"🎯 Algoritmo: Similitud Coseno con Vector Ordenado");
-            Console.WriteLine();
+            LogInfo($"📊 RESULTADOS - {resultados.Count} encontrados");
+            LogInfo($"⏱️ Tiempo: {duracion.TotalMilliseconds:F2} ms");
+            LogInfo($"🎯 Algoritmo: Similitud Coseno con Vector Ordenado");
 
             if (resultados.Count == 0)
             {
-                MostrarVacio($"🔍 No se encontraron resultados para '{consulta}'");
-                Console.WriteLine();
-                Console.WriteLine("💡 Sugerencias:");
-                Console.WriteLine("   • Use términos más generales");
-                Console.WriteLine("   • Verifique la ortografía");
-                Console.WriteLine("   • Pruebe sinónimos");
+                LogInfo($"🔍 No se encontraron resultados para '{consulta}'");
+                LogInfo("💡 Sugerencias: Use términos más generales, verifique ortografía");
                 return;
             }
 
             var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
             int posicion = 1;
 
-            while (iterador.Siguiente() && posicion <= 10)
+            while (iterador.Siguiente() && posicion <= 20)
             {
                 var resultado = iterador.Current;
-                MostrarResultadoDetallado(resultado, posicion);
-                posicion++;
 
-                if (posicion <= resultados.Count && posicion <= 10)
+                // Generar URL codificada
+                string urlCodificada = GenerarUrlCodificada(resultado);
+
+                // Determinar color según similitud
+                Brush colorFondo;
+                if (resultado.SimilitudCoseno >= 0.5)
+                    colorFondo = new SolidColorBrush(Color.FromRgb(212, 237, 218));
+                else if (resultado.SimilitudCoseno >= 0.2)
+                    colorFondo = new SolidColorBrush(Color.FromRgb(255, 243, 205));
+                else
+                    colorFondo = new SolidColorBrush(Color.FromRgb(248, 215, 218));
+
+                var viewModel = new ResultadoViewModel
                 {
-                    Console.WriteLine(new string('─', 50));
-                }
+                    Posicion = posicion,
+                    NombreArchivo = Path.GetFileName(resultado.Documento.Ruta),
+                    SimilitudTexto = $"{resultado.SimilitudCoseno * 100:F1}%",
+                    SimilitudValor = resultado.SimilitudCoseno,
+                    Score = resultado.SimilitudCoseno.ToString("F4"),
+                    DocumentoId = resultado.Documento.Id,
+                    UrlCodificada = urlCodificada,
+                    ColorFondo = colorFondo,
+                    ResultadoOriginal = resultado
+                };
+
+                Resultados.Add(viewModel);
+                posicion++;
             }
 
-            if (resultados.Count > 10)
+            if (resultados.Count > 20)
             {
-                Console.WriteLine();
-                MostrarInfo($"... y {resultados.Count - 10} resultados más");
+                LogInfo($"... y {resultados.Count - 20} resultados más");
             }
 
-            // Estadísticas de similitud
             MostrarEstadisticasSimilitud(resultados);
         }
 
-        /// <summary>
-        /// Mostrar resultado individual
-        /// </summary>
-        private void MostrarResultadoDetallado(ResultadoBusquedaVectorial resultado, int posicion)
+        private string GenerarUrlCodificada(ResultadoBusquedaVectorial resultado)
         {
-            Console.Write($"📄 {posicion}. ");
-            Console.ForegroundColor = ConsoleColor.White;
-            //Console.WriteLine(Path.GetFileName(resultado.Documento.Ruta));
-            string url = $"file:///{resultado.Documento.Ruta.Replace("\\", "/")}";
-            Console.WriteLine(url);
-            Console.ResetColor();
+            try
+            {
+                string contenido = File.Exists(resultado.Documento.Ruta)
+                    ? File.ReadAllText(resultado.Documento.Ruta)
+                    : resultado.Documento.TextoOriginal ?? "Contenido no disponible";
 
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"   📁 {resultado.Documento.Ruta}");
-            Console.WriteLine($"   🆔 ID: {resultado.Documento.Id}");
-            Console.ResetColor();
+                byte[] bytes = Encoding.UTF8.GetBytes(contenido);
+                string base64 = Convert.ToBase64String(bytes);
 
-            // Similitud con colores
-            double porcentaje = resultado.SimilitudCoseno * 100;
-            Console.Write("   📊 Similitud: ");
-
-            if (porcentaje >= 50)
-                Console.ForegroundColor = ConsoleColor.Green;
-            else if (porcentaje >= 20)
-                Console.ForegroundColor = ConsoleColor.Yellow;
-            else
-                Console.ForegroundColor = ConsoleColor.Red;
-
-            Console.WriteLine($"{porcentaje:F1}% ({resultado.SimilitudCoseno:F4})");
-            Console.ResetColor();
-
-            // Enlace base64
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine(
-                $"   🔗 Base64: {resultado.EnlaceBase64.Substring(0, Math.Min(50, resultado.EnlaceBase64.Length))}...");
-            Console.ResetColor();
+                // Crear URL que puede ser usada en navegadores o aplicaciones
+                return $"data:text/plain;charset=utf-8;base64,{base64}";
+            }
+            catch (Exception)
+            {
+                byte[] errorBytes = Encoding.UTF8.GetBytes(
+                    $"Error al cargar: {Path.GetFileName(resultado.Documento.Ruta)}");
+                string errorBase64 = Convert.ToBase64String(errorBytes);
+                return $"data:text/plain;charset=utf-8;base64,{errorBase64}";
+            }
         }
 
-        /// <summary>
-        /// Crear índice completo
-        /// </summary>
-        private async Task CrearIndiceCompleto()
+        private void CopiarUrl(object sender, RoutedEventArgs e)
         {
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("🔨 CREAR ÍNDICE CON RADIX SORT");
-            Console.WriteLine("══════════════════════════════");
-            Console.ResetColor();
+            if (sender is Button button && button.DataContext is ResultadoViewModel resultado)
+            {
+                try
+                {
+                    Clipboard.SetText(resultado.UrlCodificada);
+                    LogInfo($"📋 URL copiada al portapapeles: {resultado.NombreArchivo}");
+
+                    // Feedback visual
+                    var originalContent = button.Content;
+                    button.Content = "✅ Copiado!";
+                    button.Background = new SolidColorBrush(Color.FromRgb(39, 174, 96));
+
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                    timer.Tick += (s, args) =>
+                    {
+                        button.Content = originalContent;
+                        button.Background = new SolidColorBrush(Color.FromRgb(52, 152, 219));
+                        timer.Stop();
+                    };
+                    timer.Start();
+                }
+                catch (Exception ex)
+                {
+                    LogError($"❌ Error copiando URL: {ex.Message}");
+                    MessageBox.Show($"No se pudo copiar la URL: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private async Task CrearIndiceAsync()
+        {
+            LogInfo("🔨 CREAR ÍNDICE CON RADIX SORT");
 
             if (!Directory.Exists(DIRECTORIO_DOCUMENTOS))
             {
-                MostrarError($"❌ Directorio no encontrado: {DIRECTORIO_DOCUMENTOS}");
+                MessageBox.Show($"Directorio no encontrado:\n{DIRECTORIO_DOCUMENTOS}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             var archivos = Directory.GetFiles(DIRECTORIO_DOCUMENTOS, "*.txt");
             if (archivos.Length == 0)
             {
-                MostrarError("❌ No se encontraron archivos .txt");
+                MessageBox.Show("No se encontraron archivos .txt en el directorio", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            Console.WriteLine($"📂 {archivos.Length} archivo(s) .txt encontrados");
-            Console.WriteLine();
+            LogInfo($"📂 {archivos.Length} archivo(s) .txt encontrados");
+            ActualizarEstado("Creando índice con RadixSort...");
 
-            Console.WriteLine("🔄 Creando índice...");
-            Console.WriteLine("   ⚡ Aplicando RadixSort automáticamente...");
-
-            if (await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS))
+            try
             {
-                MostrarExito("✅ Índice creado exitosamente");
-
-                if (gestor.GuardarIndice(ARCHIVO_INDICE))
+                if (await gestor.CrearIndiceDesdeDirectorio(DIRECTORIO_DOCUMENTOS))
                 {
-                    MostrarExito($"💾 Guardado como {ARCHIVO_INDICE}");
-                }
+                    LogSuccess("✅ Índice creado exitosamente");
 
-                MostrarEstadisticas();
+                    if (gestor.GuardarIndice(ARCHIVO_INDICE))
+                    {
+                        LogSuccess($"💾 Guardado como {ARCHIVO_INDICE}");
+                    }
+
+                    MostrarEstadisticasResumen();
+                    ActualizarEstado("Índice creado - RadixSort aplicado");
+
+                    MessageBox.Show("Índice creado exitosamente con RadixSort", "Éxito",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    LogError("❌ Error al crear índice");
+                    ActualizarEstado("Error al crear índice");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MostrarError("❌ Error al crear índice");
+                LogError($"❌ Error: {ex.Message}");
+                ActualizarEstado("Error crítico");
             }
         }
 
-        /// <summary>
-        /// Mostrar estadísticas detalladas
-        /// </summary>
         private void MostrarEstadisticas()
         {
             if (gestor.IndiceEstaVacio())
             {
-                MostrarError("❌ No hay índice cargado");
+                MessageBox.Show("No hay índice cargado", "Estadísticas",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("📊 ESTADÍSTICAS DEL SISTEMA");
-            Console.WriteLine("══════════════════════════");
-            Console.ResetColor();
+            LogInfo("📊 ESTADÍSTICAS DEL SISTEMA");
 
             var stats = gestor.ObtenerEstadisticas();
 
-            Console.WriteLine();
-            Console.WriteLine("📈 DATOS PRINCIPALES:");
-            Console.WriteLine($"   📄 Documentos: {stats.CantidadDocumentos}");
-            Console.WriteLine($"   🔤 Términos: {stats.CantidadTerminos}");
-            Console.WriteLine($"   📊 Promedio términos/doc: {stats.PromedioTerminosPorDocumento:F1}");
+            LogInfo("📈 DATOS PRINCIPALES:");
+            LogInfo($"   📄 Documentos: {stats.CantidadDocumentos}");
+            LogInfo($"   🔤 Términos: {stats.CantidadTerminos}");
+            LogInfo($"   📊 Promedio términos/doc: {stats.PromedioTerminosPorDocumento:F1}");
 
-            Console.WriteLine();
-            Console.WriteLine("⚡ RENDIMIENTO:");
-            Console.WriteLine($"   💾 Memoria: {stats.MemoriaEstimadaKB} KB");
-            Console.WriteLine($"   🔤 Vector ordenado: {(stats.IndiceOrdenado ? "✅ Sí (RadixSort)" : "❌ No")}");
-            Console.WriteLine($"   ⚡ Complejidad búsqueda: {(stats.IndiceOrdenado ? "O(log n)" : "O(n)")}");
+            LogInfo("⚡ RENDIMIENTO:");
+            LogInfo($"   💾 Memoria: {stats.MemoriaEstimadaKB} KB");
+            LogInfo($"   🔤 Vector ordenado: {(stats.IndiceOrdenado ? "✅ Sí (RadixSort)" : "❌ No")}");
+            LogInfo($"   ⚡ Complejidad búsqueda: {(stats.IndiceOrdenado ? "O(log n)" : "O(n)")}");
 
             if (File.Exists(ARCHIVO_INDICE))
             {
                 var fileInfo = new FileInfo(ARCHIVO_INDICE);
-                Console.WriteLine();
-                Console.WriteLine("💾 ARCHIVO:");
-                Console.WriteLine($"   📁 {ARCHIVO_INDICE}");
-                Console.WriteLine($"   📊 Tamaño: {fileInfo.Length / 1024.0:F1} KB");
-                Console.WriteLine($"   🗓️ Modificado: {fileInfo.LastWriteTime:dd/MM/yyyy HH:mm}");
-            }
-        }
-
-        /// <summary>
-        /// Guardar índice
-        /// </summary>
-        private void GuardarIndice()
-        {
-            if (gestor.IndiceEstaVacio())
-            {
-                MostrarError("❌ No hay índice para guardar");
-                return;
+                LogInfo("💾 ARCHIVO:");
+                LogInfo($"   📁 {ARCHIVO_INDICE}");
+                LogInfo($"   📊 Tamaño: {fileInfo.Length / 1024.0:F1} KB");
+                LogInfo($"   🗓️ Modificado: {fileInfo.LastWriteTime:dd/MM/yyyy HH:mm}");
             }
 
-            Console.WriteLine();
-            Console.Write($"➤ Nombre archivo ({ARCHIVO_INDICE}): ");
-            string archivo = Console.ReadLine() ?? "";
+            var mensaje = $"📊 ESTADÍSTICAS DEL SISTEMA\n\n" +
+                          $"📈 DATOS:\n" +
+                          $"  📄 Documentos: {stats.CantidadDocumentos}\n" +
+                          $"  🔤 Términos: {stats.CantidadTerminos}\n" +
+                          $"  📊 Promedio términos/doc: {stats.PromedioTerminosPorDocumento:F1}\n\n" +
+                          $"⚡ RENDIMIENTO:\n" +
+                          $"  💾 Memoria: {stats.MemoriaEstimadaKB} KB\n" +
+                          $"  🔤 RadixSort: {(stats.IndiceOrdenado ? "✅ Activo" : "❌ Inactivo")}\n" +
+                          $"  ⚡ Complejidad: {(stats.IndiceOrdenado ? "O(log n)" : "O(n)")}";
 
-            if (string.IsNullOrWhiteSpace(archivo))
-                archivo = ARCHIVO_INDICE;
-
-            Console.WriteLine($"💾 Guardando {archivo}...");
-
-            if (gestor.GuardarIndice(archivo))
-            {
-                var fileInfo = new FileInfo(archivo);
-                MostrarExito($"✅ Guardado exitosamente ({fileInfo.Length / 1024.0:F1} KB)");
-            }
-            else
-            {
-                MostrarError("❌ Error al guardar");
-            }
+            MessageBox.Show(mensaje, "Estadísticas del Sistema", MessageBoxButton.OK, MessageBoxImage.Information);
         }
-
-        /// <summary>
-        /// Validar integridad del sistema
-        /// </summary>
-        private void ValidarSistema()
-        {
-            Console.WriteLine();
-            Console.WriteLine("🔍 VALIDANDO INTEGRIDAD DEL SISTEMA");
-            Console.WriteLine("═══════════════════════════════════");
-
-            var validacion = gestor.ValidarIntegridad();
-            Console.WriteLine();
-            Console.WriteLine(validacion.ToString());
-        }
-
-        /// <summary>
-        /// Mostrar menú principal
-        /// </summary>
-        private void MostrarMenuPrincipal()
-        {
-            var stats = gestor.ObtenerEstadisticas();
-            var estado = gestor.IndiceEstaVacio()
-                ? "❌ Sin índice"
-                : $"✅ {stats.CantidadTerminos} términos {(stats.IndiceOrdenado ? "(RadixSort)" : "(sin ordenar)")}";
-
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"Estado: {estado}");
-            Console.ResetColor();
-            Console.WriteLine();
-
-            Console.WriteLine("🎯 OPCIONES:");
-            Console.WriteLine("   1️⃣  🔍 Búsqueda vectorial (Similitud coseno)");
-            Console.WriteLine("   2️⃣  🔨 Crear índice con RadixSort");
-            Console.WriteLine("   3️⃣  📊 Ver estadísticas");
-            Console.WriteLine("   4️⃣  💾 Guardar índice");
-            Console.WriteLine("   5️⃣  ✅ Validar sistema");
-            Console.WriteLine("   0️⃣  🚪 Salir");
-            Console.WriteLine();
-        }
-
-        #region Métodos Auxiliares
 
         private void MostrarEstadisticasResumen()
         {
             if (!gestor.IndiceEstaVacio())
             {
                 var stats = gestor.ObtenerEstadisticas();
-                Console.ForegroundColor = ConsoleColor.DarkGreen;
-                Console.WriteLine(
+                LogInfo(
                     $"📊 {stats.CantidadDocumentos} docs | {stats.CantidadTerminos} términos | {stats.MemoriaEstimadaKB} KB");
-                Console.ResetColor();
             }
+        }
+
+        private void GuardarIndice()
+        {
+            if (gestor.IndiceEstaVacio())
+            {
+                MessageBox.Show("No hay índice para guardar", "Guardar",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Archivos de índice (*.bin)|*.bin|Todos los archivos (*.*)|*.*",
+                FileName = ARCHIVO_INDICE,
+                Title = "Guardar Índice"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                LogInfo($"💾 Guardando {dialog.FileName}...");
+
+                if (gestor.GuardarIndice(dialog.FileName))
+                {
+                    var fileInfo = new FileInfo(dialog.FileName);
+                    LogSuccess($"✅ Guardado exitosamente ({fileInfo.Length / 1024.0:F1} KB)");
+                    MessageBox.Show($"Índice guardado exitosamente\nTamaño: {fileInfo.Length / 1024.0:F1} KB",
+                        "Guardado", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    LogError("❌ Error al guardar");
+                    MessageBox.Show("Error al guardar el índice", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void ValidarSistema()
+        {
+            LogInfo("🔍 VALIDANDO INTEGRIDAD DEL SISTEMA");
+
+            var validacion = gestor.ValidarIntegridad();
+
+            if (validacion.EsValido)
+            {
+                LogSuccess("✅ SISTEMA VÁLIDO");
+                LogSuccess($"📊 {validacion.Mensaje}");
+            }
+            else
+            {
+                LogError("⚠️ SISTEMA CON PROBLEMAS");
+                LogError($"📊 {validacion.Mensaje}");
+            }
+
+            LogInfo($"📄 Índice poblado: {(validacion.IndiceNoVacio ? "✅" : "❌")}");
+            LogInfo($"🔤 Vector ordenado: {(validacion.Vector ? "✅" : "❌")}");
+            LogInfo($"🎯 Buscador activo: {(validacion.BuscadorFuncional ? "✅" : "❌")}");
+            LogInfo($"🏗️ Estructuras OK: {(validacion.EstructurasConsistentes ? "✅" : "❌")}");
+
+            MessageBox.Show(validacion.ToString(), "Validación del Sistema",
+                MessageBoxButton.OK,
+                validacion.EsValido ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
 
         private void MostrarEstadisticasSimilitud(ListaDobleEnlazada<ResultadoBusquedaVectorial> resultados)
@@ -477,79 +936,47 @@ namespace PruebaRider.UI
 
             double promedio = suma / resultados.Count;
 
-            Console.WriteLine();
-            Console.WriteLine("📈 ESTADÍSTICAS DE SIMILITUD:");
-            Console.WriteLine($"   📊 Promedio: {promedio * 100:F1}%");
-            Console.WriteLine($"   📊 Máxima: {max * 100:F1}%");
-            Console.WriteLine($"   📊 Mínima: {min * 100:F1}%");
+            LogInfo("📈 ESTADÍSTICAS DE SIMILITUD:");
+            LogInfo($"   📊 Promedio: {promedio * 100:F1}%");
+            LogInfo($"   📊 Máxima: {max * 100:F1}%");
+            LogInfo($"   📊 Mínima: {min * 100:F1}%");
         }
 
-        private void MostrarExito(string mensaje)
+        private void LogInfo(string mensaje)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(mensaje);
-            Console.ResetColor();
+            Dispatcher.Invoke(() =>
+            {
+                LogMensajes.Add($"{DateTime.Now:HH:mm:ss} {mensaje}");
+
+                // Mantener solo los últimos 100 mensajes para rendimiento
+                if (LogMensajes.Count > 100)
+                {
+                    LogMensajes.RemoveAt(0);
+                }
+            });
         }
 
-        private void MostrarError(string mensaje)
+        private void LogSuccess(string mensaje) => LogInfo(mensaje);
+        private void LogError(string mensaje) => LogInfo(mensaje);
+
+        private void ActualizarEstado(string mensaje)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(mensaje);
-            Console.ResetColor();
+            Dispatcher.Invoke(() =>
+            {
+                var statusText = FindName("statusText") as TextBlock;
+                if (statusText != null)
+                {
+                    statusText.Text = $"✅ {mensaje}";
+                }
+            });
         }
 
-        private void MostrarInfo(string mensaje)
+        protected override void OnClosing(CancelEventArgs e)
         {
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine(mensaje);
-            Console.ResetColor();
+            LogInfo("👋 Cerrando aplicación...");
+            gestor.LimpiarSistema();
+            base.OnClosing(e);
         }
-
-        private void MostrarVacio(string mensaje)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine(mensaje);
-            Console.ResetColor();
-        }
-
-        private string LeerOpcion()
-        {
-            Console.Write("➤ Seleccione opción: ");
-            Console.ForegroundColor = ConsoleColor.White;
-            string opcion = Console.ReadLine() ?? "";
-            Console.ResetColor();
-            return opcion;
-        }
-
-        private void MostrarDespedida()
-        {
-            Console.Clear();
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("╔═════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                  ¡PROYECTO COMPLETADO!                 ║");
-            Console.WriteLine("║          Índice Invertido con Búsqueda Vectorial       ║");
-            Console.WriteLine("╚═════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
-
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("🏆 CARACTERÍSTICAS IMPLEMENTADAS:");
-            Console.WriteLine("   ✅ Vector ordenado para índice invertido");
-            Console.WriteLine("   ✅ Algoritmo RadixSort para ordenamiento");
-            Console.WriteLine("   ✅ Búsqueda vectorial con similitud coseno");
-            Console.WriteLine("   ✅ Solo estructuras de datos propias");
-            Console.WriteLine("   ✅ Optimización O(log n) en búsquedas");
-            Console.WriteLine("   ✅ Enlaces base64 para descarga");
-            Console.ResetColor();
-
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("🎯 ¡Sistema funcionando a la perfección!");
-            Console.WriteLine("👋 ¡Gracias por usar el motor de búsqueda!");
-            Console.ResetColor();
-            Console.WriteLine();
-        }
-
-        #endregion
     }
+    
 }
