@@ -123,36 +123,7 @@ namespace PruebaRider.Modelo
                 }
             }
         }
-
-        /// <summary>
-        /// Obtener frecuencia optimizada - O(log n) si está ordenada, O(n) si no
-        /// Decisión automática basada en tamaño de lista
-        /// </summary>
-        public int GetFrecuencia(string termino)
-        {
-            if (string.IsNullOrWhiteSpace(termino) || frecuencias.Count == 0)
-                return 0;
-
-            string terminoBuscado = termino.ToLowerInvariant();
-
-            // Usar búsqueda binaria solo si vale la pena (lista grande y ordenada)
-            if (frecuencias.EstaOrdenada && frecuencias.Count > 15)
-            {
-                return BusquedaBinariaFrecuencia(terminoBuscado);
-            }
-
-            // Búsqueda lineal para listas pequeñas o no ordenadas
-            return BusquedaLinealFrecuencia(terminoBuscado);
-        }
-
-        /// <summary>
-        /// Verificar si contiene término - O(log n) o O(n) según corresponda
-        /// </summary>
-        public bool ContieneTerm(string termino)
-        {
-            return GetFrecuencia(termino) > 0;
-        }
-
+        
         /// <summary>
         /// Obtener estadísticas básicas sin objetos complejos
         /// </summary>

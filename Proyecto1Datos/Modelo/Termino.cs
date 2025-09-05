@@ -110,50 +110,13 @@ namespace PruebaRider.Modelo
             return 0.0;
         }
         
-
-        /// <summary>
-        /// Crear vector TF-IDF para todos los documentos del corpus
-        /// </summary>
-        public Vector CrearVectorTfIdf(ListaDobleEnlazada<Documento> todosDocumentos)
-        {
-            if (todosDocumentos == null || todosDocumentos.Count == 0)
-                return new Vector(1);
-
-            var vector = new Vector(todosDocumentos.Count);
-            var iteradorDocs = new Iterador<Documento>(todosDocumentos);
-            int indice = 0;
-
-            while (iteradorDocs.Siguiente())
-            {
-                var doc = iteradorDocs.Current;
-                double tfIdf = ObtenerTfIdf(doc.Id);
-                vector[indice] = tfIdf;
-                indice++;
-            }
-
-            return vector;
-        }
-
-        /// <summary>
-        /// Implementación de IComparable para ordenamiento
-        /// CRUCIAL para que funcione el RadixSort en VectorOrdenado
-        /// </summary>
+        
         public int CompareTo(Termino other)
         {
             if (other == null) return 1;
             return string.Compare(this.palabra, other.palabra, StringComparison.OrdinalIgnoreCase);
         }
-
-        /// <summary>
-        /// Limpiar el término
-        /// </summary>
-        public void Limpiar()
-        {
-            documentos.Limpiar();
-            idf = 0.0;
-            totalApariciones = 0;
-        }
-
+        
     }
 
     /// <summary>
