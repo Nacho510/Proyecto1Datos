@@ -1,24 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>WinExe</OutputType>
-        <TargetFramework>net9.0-windows</TargetFramework>
-        <UseWPF>true</UseWPF>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
-
-    <!-- Resolver conflictos de namespaces -->
-    <ItemGroup>
-        <Using Remove="System.Windows.Forms" />
-        <Using Include="System" />
-        <Using Include="System.Collections.Generic" />
-        <Using Include="System.IO" />
-        <Using Include="System.Linq" />
-        <Using Include="System.Net.Http" />
-        <Using Include="System.Threading" />
-        <Using Include="System.Threading.Tasks" />
-        <Using Include="System.Text" />
-    </ItemGroup>
 
 </Project>

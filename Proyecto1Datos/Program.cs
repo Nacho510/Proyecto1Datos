@@ -1,43 +1,28 @@
-﻿using System;
-using System.Windows;
-using PruebaRider.UI;
+﻿using PruebaRider.UI;
 
 namespace PruebaRider
 {
-    /// <summary>
-    /// Punto de entrada principal para la aplicación con interfaz gráfica
-    /// </summary>
-    public static class Program
+    class Program
     {
-        /// <summary>
-        /// Punto de entrada principal de la aplicación
-        /// </summary>
-        [STAThread]
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            // Verificar si se quiere usar consola (parámetro --console)
-            /*if (args.Length > 0 && args[0] == "--console")
-            {
-                // Usar la interfaz de consola original
-                var interfazConsola = new Interfaz();
-                interfazConsola.MenuPrincipalAsync().Wait();
-                return;
-            }*/
-
-            // Usar la interfaz gráfica moderna
             try
             {
-                var app = new Application();
-                app.Run(new MainWindow());
+                var interfaz = new InterfazSimple();
+                await interfaz.IniciarAsync();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                // Si falla la interfaz gráfica, mostrar error y usar consola
-                Console.WriteLine("❌ Error en interfaz gráfica, cambiando a consola...");
-                Console.WriteLine($"Error: {ex.Message}");
-                
-                var interfazConsola = new MainWindow();
-               // interfazConsola.MenuPrincipalAsync().Wait();
+                Console.Clear();
+                Console.WriteLine("❌ ERROR FATAL");
+                Console.WriteLine("================");
+                Console.WriteLine($"Mensaje: {ex.Message}");
+                Console.WriteLine();
+                Console.WriteLine("Detalles técnicos:");
+                Console.WriteLine(ex.ToString());
+                Console.WriteLine();
+                Console.WriteLine("Presione cualquier tecla para salir...");
+                Console.ReadKey();
             }
         }
     }
