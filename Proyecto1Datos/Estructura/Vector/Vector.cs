@@ -1,11 +1,5 @@
 ﻿namespace PruebaRider.Estructura.Vector
 {
-    /// <summary>
-    /// Vector UNIFICADO que maneja tanto números para similitud coseno 
-    /// como elementos genéricos para el índice con RadixSort
-    /// - Para similitud coseno: Vector(dimensión) con doubles
-    /// - Para índice invertido: Vector<T> con RadixSort
-    /// </summary>
     public class Vector
     {
         private double[] valores;

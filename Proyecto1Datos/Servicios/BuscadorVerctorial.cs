@@ -6,10 +6,10 @@ using PruebaRider.Modelo;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// Buscador vectorial simplificado y optimizado
-    /// - Enfocado en similitud coseno perfecta
-    /// - Usa el nuevo índice con vector ordenado y RadixSort
-    /// - Sin complejidad innecesaria
+    /// Buscador vectorial OPTIMIZADO
+    /// - Sin dependencias de genéricos prohibidos
+    /// - Enfocado únicamente en similitud coseno
+    /// - Código limpio y eficiente
     /// </summary>
     public class BuscadorVectorial
     {
@@ -21,8 +21,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// BÚSQUEDA VECTORIAL PRINCIPAL
-        /// Este es el corazón del sistema de búsqueda
+        /// BÚSQUEDA VECTORIAL PRINCIPAL - Similitud Coseno
         /// </summary>
         public ListaDobleEnlazada<ResultadoBusquedaVectorial> Buscar(string consulta)
         {
@@ -31,36 +30,18 @@ namespace PruebaRider.Servicios
             if (string.IsNullOrWhiteSpace(consulta))
                 return resultados;
 
-            Console.WriteLine($"🔍 Buscador vectorial: '{consulta}'");
-
             // 1. CREAR VECTOR DE CONSULTA
             var vectorConsulta = CrearVectorConsulta(consulta);
-            if (vectorConsulta == null)
-            {
-                Console.WriteLine("❌ No se pudo crear vector de consulta");
+            if (vectorConsulta == null || !vectorConsulta.TieneValoresSignificativos())
                 return resultados;
-            }
-
-            if (!vectorConsulta.TieneValoresSignificativos())
-            {
-                Console.WriteLine("❌ Vector de consulta sin valores significativos");
-                return resultados;
-            }
-
-            Console.WriteLine($"📊 Vector consulta: magnitud = {vectorConsulta.Magnitud():F4}");
 
             // 2. COMPARAR CON TODOS LOS DOCUMENTOS
             var documentos = indice.GetDocumentos();
             var iteradorDocs = new Iterador<Documento>(documentos);
-            int procesados = 0;
-            int conSimilitud = 0;
 
             while (iteradorDocs.Siguiente())
             {
                 var documento = iteradorDocs.Current;
-                procesados++;
-
-                // Crear vector TF-IDF del documento
                 var vectorDoc = CrearVectorDocumento(documento);
                 
                 if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
@@ -69,17 +50,12 @@ namespace PruebaRider.Servicios
                 // CALCULAR SIMILITUD COSENO
                 double similitud = vectorConsulta.SimilitudCoseno(vectorDoc);
 
-                if (similitud > 0.0001) // Umbral muy bajo para capturar cualquier similitud
+                if (similitud > 0.001) // Umbral mínimo
                 {
                     var resultado = new ResultadoBusquedaVectorial(documento, similitud);
                     resultados.Agregar(resultado);
-                    conSimilitud++;
-                    
-                    Console.WriteLine($"   📄 {Path.GetFileName(documento.Ruta)}: {similitud:F4} ({similitud * 100:F1}%)");
                 }
             }
-
-            Console.WriteLine($"📊 Procesados: {procesados}, Con similitud: {conSimilitud}");
 
             // 3. ORDENAR POR SIMILITUD DESCENDENTE
             if (resultados.Count > 0)
@@ -95,22 +71,18 @@ namespace PruebaRider.Servicios
         /// </summary>
         private Vector CrearVectorConsulta(string consulta)
         {
-            // Procesar consulta
             var procesador = new ProcesadorDeTexto();
             var tokens = procesador.ProcesarTextoCompleto(consulta);
             
             if (tokens.Count == 0)
                 return null;
 
-            // Contar frecuencias en la consulta
             var frecuenciasConsulta = ContarFrecuencias(tokens);
-
-            // Obtener vocabulario completo del índice
             var indiceTerminos = indice.GetIndiceTerminos();
+            
             if (indiceTerminos.Count == 0)
                 return null;
 
-            // Crear vector con dimensión = tamaño del vocabulario
             var vector = new Vector(indiceTerminos.Count);
             var iterador = indiceTerminos.ObtenerIterador();
             int posicion = 0;
@@ -118,16 +90,12 @@ namespace PruebaRider.Servicios
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                
-                // Buscar frecuencia del término en la consulta
                 int frecuenciaEnConsulta = ObtenerFrecuencia(frecuenciasConsulta, termino.Palabra);
                 
                 if (frecuenciaEnConsulta > 0)
                 {
-                    // TF-IDF para consulta: TF * IDF
                     double tfIdf = frecuenciaEnConsulta * termino.Idf;
                     vector[posicion] = tfIdf;
-                    Console.WriteLine($"   🔤 '{termino.Palabra}': TF={frecuenciaEnConsulta}, IDF={termino.Idf:F3}, TF-IDF={tfIdf:F3}");
                 }
                 else
                 {
@@ -156,11 +124,8 @@ namespace PruebaRider.Servicios
             while (iterador.Siguiente())
             {
                 var termino = iterador.Current;
-                
-                // Obtener TF-IDF del término para este documento
                 double tfIdf = termino.ObtenerTfIdf(documento.Id);
                 vector[posicion] = tfIdf;
-                
                 posicion++;
             }
 
@@ -168,21 +133,22 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Contar frecuencias de tokens sin usar estructuras prohibidas
+        /// Contar frecuencias usando ArrayDinamico
         /// </summary>
-        private TokenConteo[] ContarFrecuencias(List<string> tokens)
+        private TokenConteo[] ContarFrecuencias(ArrayDinamico tokens)
         {
-            var conteos = new TokenConteo[tokens.Count]; // Máximo posible
+            var conteos = new TokenConteo[tokens.Count];
             int cantidadUnicos = 0;
 
-            foreach (var token in tokens)
+            var iterador = tokens.ObtenerIterador();
+            while (iterador.Siguiente())
             {
+                string token = iterador.Current;
                 if (string.IsNullOrWhiteSpace(token)) continue;
 
                 string tokenNorm = token.ToLowerInvariant();
                 bool encontrado = false;
 
-                // Buscar si ya existe
                 for (int i = 0; i < cantidadUnicos; i++)
                 {
                     if (conteos[i].Token == tokenNorm)
@@ -204,7 +170,6 @@ namespace PruebaRider.Servicios
                 }
             }
 
-            // Crear array del tamaño exacto
             var resultado = new TokenConteo[cantidadUnicos];
             Array.Copy(conteos, resultado, cantidadUnicos);
             return resultado;
@@ -224,7 +189,7 @@ namespace PruebaRider.Servicios
         }
 
         /// <summary>
-        /// Estructura simple para conteo de tokens
+        /// Estructura para conteo de tokens
         /// </summary>
         private struct TokenConteo
         {
@@ -232,5 +197,4 @@ namespace PruebaRider.Servicios
             public int Frecuencia { get; set; }
         }
     }
-    
 }
