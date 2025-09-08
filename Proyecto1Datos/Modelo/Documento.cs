@@ -13,15 +13,6 @@ namespace PruebaRider.Modelo
         private string tokens;
         private string ruta;
         private ListaDobleEnlazada<TerminoFrecuencia> frecuencias;
-
-        public Documento()
-        {
-            this.id = 0;
-            this.textoOriginal = "";
-            this.tokens = "";
-            this.ruta = "";
-            this.frecuencias = new ListaDobleEnlazada<TerminoFrecuencia>();
-        }
         
         public Documento(int id, string textoOriginal, string ruta)
         {

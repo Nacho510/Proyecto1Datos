@@ -6,10 +6,7 @@ using PruebaRider.Modelo;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// Buscador vectorial OPTIMIZADO
-    /// - Sin dependencias de genéricos prohibidos
-    /// - Enfocado únicamente en similitud coseno
-    /// - Código limpio y eficiente
+    /// Buscador simplificado manteniendo TU Vector con operador * sobrecargado
     /// </summary>
     public class BuscadorVectorial
     {
@@ -20,9 +17,6 @@ namespace PruebaRider.Servicios
             this.indice = indice ?? throw new ArgumentNullException(nameof(indice));
         }
 
-        /// <summary>
-        /// BÚSQUEDA VECTORIAL PRINCIPAL - Similitud Coseno
-        /// </summary>
         public ListaDobleEnlazada<ResultadoBusquedaVectorial> Buscar(string consulta)
         {
             var resultados = new ListaDobleEnlazada<ResultadoBusquedaVectorial>();
@@ -30,12 +24,12 @@ namespace PruebaRider.Servicios
             if (string.IsNullOrWhiteSpace(consulta))
                 return resultados;
 
-            // 1. CREAR VECTOR DE CONSULTA
+            // 1. Crear vector de consulta usando TU Vector
             var vectorConsulta = CrearVectorConsulta(consulta);
             if (vectorConsulta == null || !vectorConsulta.TieneValoresSignificativos())
                 return resultados;
 
-            // 2. COMPARAR CON TODOS LOS DOCUMENTOS
+            // 2. Comparar con documentos usando TU similitud coseno
             var documentos = indice.GetDocumentos();
             var iteradorDocs = new Iterador<Documento>(documentos);
 
@@ -43,21 +37,21 @@ namespace PruebaRider.Servicios
             {
                 var documento = iteradorDocs.Current;
                 var vectorDoc = CrearVectorDocumento(documento);
-                
+
                 if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
                     continue;
 
-                // CALCULAR SIMILITUD COSENO
+                // Usar TU método SimilitudCoseno
                 double similitud = vectorConsulta.SimilitudCoseno(vectorDoc);
 
-                if (similitud > 0.001) // Umbral mínimo
+                if (similitud > 0.001)
                 {
                     var resultado = new ResultadoBusquedaVectorial(documento, similitud);
                     resultados.Agregar(resultado);
                 }
             }
 
-            // 3. ORDENAR POR SIMILITUD DESCENDENTE
+            // 3. Ordenar usando TU método
             if (resultados.Count > 0)
             {
                 resultados.OrdenarDescendente(r => r.SimilitudCoseno);
@@ -66,23 +60,21 @@ namespace PruebaRider.Servicios
             return resultados;
         }
 
-        /// <summary>
-        /// Crear vector TF-IDF para la consulta
-        /// </summary>
         private Vector CrearVectorConsulta(string consulta)
         {
             var procesador = new ProcesadorDeTexto();
             var tokens = procesador.ProcesarTextoCompleto(consulta);
-            
+
             if (tokens.Count == 0)
                 return null;
 
             var frecuenciasConsulta = ContarFrecuencias(tokens);
             var indiceTerminos = indice.GetIndiceTerminos();
-            
+
             if (indiceTerminos.Count == 0)
                 return null;
 
+            // Usar TU Vector
             var vector = new Vector(indiceTerminos.Count);
             var iterador = indiceTerminos.ObtenerIterador();
             int posicion = 0;
@@ -91,7 +83,7 @@ namespace PruebaRider.Servicios
             {
                 var termino = iterador.Current;
                 int frecuenciaEnConsulta = ObtenerFrecuencia(frecuenciasConsulta, termino.Palabra);
-                
+
                 if (frecuenciaEnConsulta > 0)
                 {
                     double tfIdf = frecuenciaEnConsulta * termino.Idf;
@@ -101,22 +93,20 @@ namespace PruebaRider.Servicios
                 {
                     vector[posicion] = 0.0;
                 }
-                
+
                 posicion++;
             }
 
             return vector;
         }
 
-        /// <summary>
-        /// Crear vector TF-IDF para un documento
-        /// </summary>
         private Vector CrearVectorDocumento(Documento documento)
         {
             var indiceTerminos = indice.GetIndiceTerminos();
             if (indiceTerminos.Count == 0)
                 return null;
 
+            // Usar TU Vector
             var vector = new Vector(indiceTerminos.Count);
             var iterador = indiceTerminos.ObtenerIterador();
             int posicion = 0;
@@ -132,9 +122,6 @@ namespace PruebaRider.Servicios
             return vector;
         }
 
-        /// <summary>
-        /// Contar frecuencias usando ArrayDinamico
-        /// </summary>
         private TokenConteo[] ContarFrecuencias(ArrayDinamico tokens)
         {
             var conteos = new TokenConteo[tokens.Count];
@@ -161,10 +148,10 @@ namespace PruebaRider.Servicios
 
                 if (!encontrado)
                 {
-                    conteos[cantidadUnicos] = new TokenConteo 
-                    { 
-                        Token = tokenNorm, 
-                        Frecuencia = 1 
+                    conteos[cantidadUnicos] = new TokenConteo
+                    {
+                        Token = tokenNorm,
+                        Frecuencia = 1
                     };
                     cantidadUnicos++;
                 }
@@ -175,9 +162,6 @@ namespace PruebaRider.Servicios
             return resultado;
         }
 
-        /// <summary>
-        /// Obtener frecuencia de un token específico
-        /// </summary>
         private int ObtenerFrecuencia(TokenConteo[] conteos, string token)
         {
             for (int i = 0; i < conteos.Length; i++)
@@ -185,12 +169,10 @@ namespace PruebaRider.Servicios
                 if (string.Equals(conteos[i].Token, token, StringComparison.OrdinalIgnoreCase))
                     return conteos[i].Frecuencia;
             }
+
             return 0;
         }
 
-        /// <summary>
-        /// Estructura para conteo de tokens
-        /// </summary>
         private struct TokenConteo
         {
             public string Token { get; set; }

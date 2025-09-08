@@ -32,9 +32,7 @@ namespace PruebaRider.Modelo
             get => idf; 
             set => idf = value; 
         }
-        public int CantidadDocumentos => documentos.Count;
-        public int TotalApariciones => totalApariciones;
-
+     
         /// <summary>
         /// Agregar documento con su frecuencia TF
         /// </summary>

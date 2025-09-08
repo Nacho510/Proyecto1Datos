@@ -305,7 +305,7 @@ namespace PruebaRider.Strategy
     }
 
     // Estrategia híbrida que combina ambos enfoques
-    public class EliminarTerminosHibridoStrategy : IReducirTerminosStrategy
+   public class EliminarTerminosHibridoStrategy : IReducirTerminosStrategy
     {
         private ListaDobleEnlazada<Termino> indice;
 
@@ -408,60 +408,6 @@ namespace PruebaRider.Strategy
             estrategia.Aplicar(percentil);
         }
 
-        public string ObtenerInformacionEstrategia()
-        {
-            if (estrategia == null)
-                return "No hay estrategia establecida";
-
-            return $"{estrategia.NombreEstrategia}: {estrategia.Descripcion}";
-        }
     }
-
-    // Factory para crear estrategias
-    public static class FabricaEstrategias
-    {
-        public enum TipoEstrategia
-        {
-            EliminarFrecuentes,
-            EliminarRaros,
-            Hibrido,
-            FrecuentesConservador // NUEVA OPCIÓN
-        }
-
-        public static IReducirTerminosStrategy CrearEstrategia(TipoEstrategia tipo, ListaDobleEnlazada<Termino> indice,
-            int totalDocumentos = 0)
-        {
-            if (indice == null)
-                throw new ArgumentNullException(nameof(indice));
-
-            switch (tipo)
-            {
-                case TipoEstrategia.EliminarFrecuentes:
-                    return new EliminarTerminosFrecuentes(indice);
-
-                case TipoEstrategia.EliminarRaros:
-                    return new EliminarTerminosRaros(indice);
-
-                case TipoEstrategia.Hibrido:
-                    return new EliminarTerminosHibridoStrategy(indice);
-
-                case TipoEstrategia.FrecuentesConservador:
-                    return new EliminarTerminosFrecuentesConservadora(indice, totalDocumentos);
-
-                default:
-                    throw new ArgumentException("Tipo de estrategia no válido");
-            }
-        }
-
-        public static List<string> ObtenerEstrategiasDisponibles()
-        {
-            return new List<string>
-            {
-                "Eliminar Términos Frecuentes - Remueve stopwords y términos muy comunes",
-                "Eliminar Términos Raros - Remueve términos poco frecuentes o ruido",
-                "Estrategia Híbrida - Combina ambos enfoques para rango medio óptimo",
-                "Frecuentes Conservador - Elimina solo términos extremadamente frecuentes (RECOMENDADO)"
-            };
-        }
-    }
+    
 }

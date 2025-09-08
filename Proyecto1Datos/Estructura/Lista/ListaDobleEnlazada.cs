@@ -50,6 +50,9 @@
         }
         
 
+        /// <summary>
+        /// Ordena la lista descendentemente usando Bubble Sort optimizado
+        /// </summary>
         public void OrdenarDescendente(Func<T, double> criterio)
         {
             if (count < 2)
@@ -58,17 +61,8 @@
                 return;
             }
 
-            if (count <= 20)
-            {
-                // Bubble sort optimizado para listas pequeñas
-                BubbleSortOptimizado(criterio, false); // false = descendente
-            }
-            else
-            {
-                // Array.Sort para listas grandes - O(n log n)
-                OrdenarConArraySort(criterio, false);
-            }
-
+            // Usar solo Bubble Sort optimizado para todos los casos
+            BubbleSortOptimizado(criterio, false); // false = descendente
             estaOrdenada = true;
         }
         
@@ -104,6 +98,10 @@
         public NodoDoble<T> ObtenerInicio() => root;
         
 
+        /// <summary>
+        /// Bubble Sort optimizado con detección temprana de ordenamiento
+        /// Complejidad: O(n²) peor caso, O(n) mejor caso
+        /// </summary>
         private void BubbleSortOptimizado(Func<T, double> criterio, bool ascendente)
         {
             if (count < 2) return;
@@ -116,16 +114,19 @@
                 huboIntercambio = false;
                 var actual = root;
 
+                // Recorrer la lista comparando elementos adyacentes
                 for (int i = 0; i < count - 1 - pasadas; i++)
                 {
                     var siguiente = actual.Sig;
                     double valorActual = criterio(actual.Data);
                     double valorSiguiente = criterio(siguiente.Data);
 
+                    // Determinar si se debe intercambiar según el orden deseado
                     bool debeIntercambiar = ascendente ? valorActual > valorSiguiente : valorActual < valorSiguiente;
 
                     if (debeIntercambiar)
                     {
+                        // Intercambiar los datos (no los nodos)
                         var temp = actual.Data;
                         actual.Data = siguiente.Data;
                         siguiente.Data = temp;
@@ -136,34 +137,8 @@
                 }
 
                 pasadas++;
+                
             } while (huboIntercambio && pasadas < count);
-        }
-        
-
-        private void OrdenarConArraySort(Func<T, double> criterio, bool ascendente)
-        {
-            var elementos = new T[count];
-            CopiarA(elementos, 0);
-
-            if (ascendente)
-            {
-                Array.Sort(elementos, (a, b) => criterio(a).CompareTo(criterio(b)));
-            }
-            else
-            {
-                Array.Sort(elementos, (a, b) => criterio(b).CompareTo(criterio(a)));
-            }
-
-            ReconstruirDesdeArray(elementos);
-        }
-        
-        private void ReconstruirDesdeArray(T[] elementos)
-        {
-            Limpiar();
-            foreach (var elemento in elementos)
-            {
-                Agregar(elemento);
-            }
         }
     }
 }

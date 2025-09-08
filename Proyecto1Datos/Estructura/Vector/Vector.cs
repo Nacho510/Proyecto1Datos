@@ -389,12 +389,7 @@
 
                 return false;
             }
-
-            public void Limpiar()
-            {
-                posicionActual = -1;
-                Current = default(T);
-            }
+            
         }
     }
 }
