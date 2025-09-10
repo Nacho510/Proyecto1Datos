@@ -65,27 +65,6 @@
             BubbleSortOptimizado(criterio, false); // false = descendente
             estaOrdenada = true;
         }
-        
-        public void CopiarA(T[] array, int arrayIndex)
-        {
-            if (array == null)
-                throw new ArgumentNullException(nameof(array));
-
-            if (arrayIndex < 0 || arrayIndex > array.Length)
-                throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-
-            if (array.Length - arrayIndex < count)
-                throw new ArgumentException("El array destino no tiene suficiente espacio.");
-
-            if (root == null) return;
-
-            var current = root;
-            for (int i = 0; i < count; i++)
-            {
-                array[arrayIndex + i] = current.Data;
-                current = current.Sig;
-            }
-        }
 
         public void Limpiar()
         {

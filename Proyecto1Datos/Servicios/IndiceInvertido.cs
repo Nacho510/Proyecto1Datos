@@ -187,24 +187,15 @@ namespace PruebaRider.Servicios
         public Termino BuscarTermino(string palabra)
         {
             if (string.IsNullOrWhiteSpace(palabra)) return null;
-
+            
+            if (!indiceTerminos.EstaOrdenado)
+            {
+                indiceTerminos.OrdenarRadix();
+            }
+    
             string palabraNormalizada = palabra.ToLowerInvariant();
-
-            if (indiceTerminos.EstaOrdenado)
-            {
-                var terminoBusqueda = new Termino(palabraNormalizada);
-                return indiceTerminos.BuscarBinario(terminoBusqueda);
-            }
-            else
-            {
-                var iterador = indiceTerminos.ObtenerIterador();
-                while (iterador.Siguiente())
-                {
-                    if (string.Equals(iterador.Current.Palabra, palabraNormalizada, StringComparison.OrdinalIgnoreCase))
-                        return iterador.Current;
-                }
-                return null;
-            }
+            var terminoBusqueda = new Termino(palabraNormalizada);
+            return indiceTerminos.BuscarBinario(terminoBusqueda);
         }
 
         private void CalcularMetricasTfIdf()

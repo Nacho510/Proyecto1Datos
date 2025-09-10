@@ -6,8 +6,7 @@
         private const double EPSILON = 1e-12;
 
         public int Dimension => valores.Length;
-
-        // Constructor para similitud coseno (solo números)
+        
         public Vector(int dimension)
         {
             if (dimension <= 0)
@@ -16,8 +15,7 @@
             valores = new double[dimension];
         }
 
-
-        // Indexer para acceso a elementos
+        
         public double this[int index]
         {
             get
@@ -45,10 +43,7 @@
                 }
             }
         }
-
-        /// <summary>
-        /// Producto punto para similitud coseno
-        /// </summary>
+        
         public static double operator *(Vector v1, Vector v2)
         {
             if (v1 == null || v2 == null)
@@ -147,10 +142,7 @@
             return false;
         }
     }
-
-    /// <summary>
-    /// Vector genérico para índice invertido con RadixSort
-    /// </summary>
+    
     public class VectorOrdenado<T> where T : IComparable<T>
     {
         private T[] elementos;
@@ -171,10 +163,7 @@
 
         public int Count => tamaño;
         public bool EstaOrdenado => estaOrdenado;
-
-        /// <summary>
-        /// Agregar elemento sin orden (más rápido)
-        /// </summary>
+        
         public void Agregar(T elemento)
         {
             if (elemento == null)
@@ -187,10 +176,7 @@
             tamaño++;
             estaOrdenado = false;
         }
-
-        /// <summary>
-        /// ALGORITMO RADIX SORT - Requisito específico del proyecto
-        /// </summary>
+        
         public void OrdenarRadix()
         {
             if (tamaño <= 1)
@@ -198,8 +184,7 @@
                 estaOrdenado = true;
                 return;
             }
-
-            // Para tipos string, usar RadixSort especializado
+            
             if (typeof(T) == typeof(string))
             {
                 RadixSortStrings();
@@ -212,54 +197,43 @@
 
             estaOrdenado = true;
         }
-
-        /// <summary>
-        /// Radix Sort especializado para strings
-        /// </summary>
+        
         private void RadixSortStrings()
         {
             if (typeof(T) != typeof(string)) return;
 
             var strings = elementos as string[];
             if (strings == null) return;
-
-            // Encontrar la longitud máxima
+            
             int maxLength = 0;
             for (int i = 0; i < tamaño; i++)
             {
                 if (strings[i] != null && strings[i].Length > maxLength)
                     maxLength = strings[i].Length;
             }
-
-            // Aplicar counting sort para cada posición de carácter
+            
             for (int pos = maxLength - 1; pos >= 0; pos--)
             {
                 CountingSortPorPosicion(strings, pos);
             }
         }
-
-        /// <summary>
-        /// Counting sort por posición de carácter
-        /// </summary>
+        
         private void CountingSortPorPosicion(string[] strings, int posicion)
         {
             const int ALFABETO_SIZE = 256;
 
             int[] count = new int[ALFABETO_SIZE];
             string[] output = new string[tamaño];
-
-            // Contar frecuencias
+            
             for (int i = 0; i < tamaño; i++)
             {
                 int index = ObtenerCaracterEn(strings[i], posicion);
                 count[index]++;
             }
-
-            // Cambiar count[i] para que contenga la posición actual
+            
             for (int i = 1; i < ALFABETO_SIZE; i++)
                 count[i] += count[i - 1];
-
-            // Construir el array resultado
+            
             for (int i = tamaño - 1; i >= 0; i--)
             {
                 int index = ObtenerCaracterEn(strings[i], posicion);
@@ -271,10 +245,7 @@
             for (int i = 0; i < tamaño; i++)
                 strings[i] = output[i];
         }
-
-        /// <summary>
-        /// Obtener carácter en posición específica
-        /// </summary>
+        
         private int ObtenerCaracterEn(string str, int posicion)
         {
             if (str == null || posicion >= str.Length)
@@ -282,10 +253,7 @@
 
             return (int)str[posicion];
         }
-
-        /// <summary>
-        /// Búsqueda binaria O(log n)
-        /// </summary>
+        
         public T BuscarBinario(T valor)
         {
             if (!estaOrdenado)
@@ -309,10 +277,7 @@
 
             return default(T);
         }
-
-        /// <summary>
-        /// Acceso por índice
-        /// </summary>
+        
         public T this[int index]
         {
             get
@@ -329,28 +294,19 @@
                 estaOrdenado = false; // Al modificar directamente, se puede perder el orden
             }
         }
-
-        /// <summary>
-        /// Crear iterador para recorrido
-        /// </summary>
+        
         public IteradorVectorOrdenado<T> ObtenerIterador()
         {
             return new IteradorVectorOrdenado<T>(this);
         }
-
-        /// <summary>
-        /// Limpiar vector
-        /// </summary>
+        
         public void Limpiar()
         {
             Array.Clear(elementos, 0, tamaño);
             tamaño = 0;
             estaOrdenado = true;
         }
-
-        /// <summary>
-        /// Expandir capacidad del vector
-        /// </summary>
+        
         private void ExpandirCapacidad()
         {
             int nuevaCapacidad = (int)(capacidad * FACTOR_CRECIMIENTO);
@@ -362,9 +318,6 @@
             capacidad = nuevaCapacidad;
         }
 
-        /// <summary>
-        /// Iterador para VectorOrdenado
-        /// </summary>
         public class IteradorVectorOrdenado<T> where T : IComparable<T>
         {
             private readonly VectorOrdenado<T> vector;
