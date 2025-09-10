@@ -3,9 +3,7 @@ using PruebaRider.Estructura.Nodo;
 
 namespace PruebaRider.Modelo
 {
-    /// <summary>
-    /// Documento optimizado para trabajar con arrays en lugar de List<string>
-    /// </summary>
+
     public class Documento
     {
         private int id;
@@ -23,7 +21,6 @@ namespace PruebaRider.Modelo
             this.frecuencias = new ListaDobleEnlazada<TerminoFrecuencia>();
         }
 
-        // Propiedades
         public int Id
         {
             get => id;
@@ -46,10 +43,7 @@ namespace PruebaRider.Modelo
             get => tokens;
             set => tokens = value ?? "";
         }
-
-        /// <summary>
-        /// NUEVO MÉTODO: Calcular frecuencias usando array en lugar de List<string>
-        /// </summary>
+        
         public void CalcularFrecuenciasArray(string[] tokens)
         {
             frecuencias.Limpiar();
@@ -59,8 +53,7 @@ namespace PruebaRider.Modelo
 
             var contadoresArray = new ContadorTerminoOptimizado[tokens.Length];
             int cantidadUnicos = 0;
-
-            // Contar frecuencias
+            
             foreach (var token in tokens)
             {
                 if (string.IsNullOrWhiteSpace(token)) continue;
@@ -85,17 +78,13 @@ namespace PruebaRider.Modelo
                 }
             }
 
-            // Transferir a lista final
             for (int i = 0; i < cantidadUnicos; i++)
             {
                 var contador = contadoresArray[i];
                 frecuencias.Agregar(new TerminoFrecuencia(contador.Token, contador.Frecuencia));
             }
         }
-
-        /// <summary>
-        /// Obtener estadísticas básicas
-        /// </summary>
+        
         public (int terminosUnicos, int totalTokens, string terminoMasFrecuente, int maxFrecuencia) GetEstadisticasBasicas()
         {
             if (frecuencias.Count == 0)
@@ -137,10 +126,7 @@ namespace PruebaRider.Modelo
             string nombreArchivo = Path.GetFileName(ruta);
             return $"Doc[{Id}:{nombreArchivo}|{terminosUnicos}términos|{totalTokens}tokens]";
         }
-
-        /// <summary>
-        /// Estructura optimizada para conteo temporal
-        /// </summary>
+        
         private struct ContadorTerminoOptimizado
         {
             public string Token;

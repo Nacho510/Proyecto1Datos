@@ -6,7 +6,7 @@ using PruebaRider.Modelo;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// Buscador simplificado manteniendo TU Vector con operador * sobrecargado
+    /// Se encarga de buscar documentos similares usando los vectores TF-IDF y la similitud del coseno.
     /// </summary>
     public class BuscadorVectorial
     {
@@ -23,13 +23,11 @@ namespace PruebaRider.Servicios
 
             if (string.IsNullOrWhiteSpace(consulta))
                 return resultados;
-
-            // 1. Crear vector de consulta usando TU Vector
+            
             var vectorConsulta = CrearVectorConsulta(consulta);
             if (vectorConsulta == null || !vectorConsulta.TieneValoresSignificativos())
                 return resultados;
 
-            // 2. Comparar con documentos usando TU similitud coseno
             var documentos = indice.GetDocumentos();
             var iteradorDocs = new Iterador<Documento>(documentos);
 
@@ -40,8 +38,7 @@ namespace PruebaRider.Servicios
 
                 if (vectorDoc == null || !vectorDoc.TieneValoresSignificativos())
                     continue;
-
-                // Usar TU método SimilitudCoseno
+                
                 double similitud = vectorConsulta.SimilitudCoseno(vectorDoc);
 
                 if (similitud > 0.001)
@@ -50,8 +47,6 @@ namespace PruebaRider.Servicios
                     resultados.Agregar(resultado);
                 }
             }
-
-            // 3. Ordenar usando TU método
             if (resultados.Count > 0)
             {
                 resultados.OrdenarDescendente(r => r.SimilitudCoseno);
@@ -63,9 +58,11 @@ namespace PruebaRider.Servicios
         private Vector CrearVectorConsulta(string consulta)
         {
             var procesador = new ProcesadorDeTexto();
+            
+            // CORREGIDO: Ahora devuelve string[] directamente
             var tokens = procesador.ProcesarTextoCompleto(consulta);
 
-            if (tokens.Count == 0)
+            if (tokens.Length == 0)
                 return null;
 
             var frecuenciasConsulta = ContarFrecuencias(tokens);
@@ -122,25 +119,25 @@ namespace PruebaRider.Servicios
             return vector;
         }
 
-        private TokenConteo[] ContarFrecuencias(ArrayDinamico tokens)
+        private TokenConteo[] ContarFrecuencias(string[] tokens)
         {
-            var conteos = new TokenConteo[tokens.Count];
+            var conteos = new TokenConteo[tokens.Length];
             int cantidadUnicos = 0;
 
-            var iterador = tokens.ObtenerIterador();
-            while (iterador.Siguiente())
+            // CORREGIDO: Usar for loop en lugar de iterador
+            for (int i = 0; i < tokens.Length; i++)
             {
-                string token = iterador.Current;
+                string token = tokens[i];
                 if (string.IsNullOrWhiteSpace(token)) continue;
 
                 string tokenNorm = token.ToLowerInvariant();
                 bool encontrado = false;
 
-                for (int i = 0; i < cantidadUnicos; i++)
+                for (int j = 0; j < cantidadUnicos; j++)
                 {
-                    if (conteos[i].Token == tokenNorm)
+                    if (conteos[j].Token == tokenNorm)
                     {
-                        conteos[i].Frecuencia++;
+                        conteos[j].Frecuencia++;
                         encontrado = true;
                         break;
                     }

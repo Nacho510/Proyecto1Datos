@@ -4,7 +4,8 @@ using PruebaRider.Modelo;
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// Resultado FINAL - Sin contenido binario molesto
+    /// Almacena el resultado de una búsqueda vectorial
+    /// Incluye el documento, la similitud coseno y métodos para generar URL y vista
     /// </summary>
     public class ResultadoBusquedaVectorial
     {
@@ -19,10 +20,7 @@ namespace PruebaRider.Servicios
             Documento = documento ?? throw new ArgumentNullException(nameof(documento));
             SimilitudCoseno = Math.Max(0.0, Math.Min(1.0, similitudCoseno));
         }
-
-        /// <summary>
-        /// Generar URL SOLO cuando se solicita (no automáticamente)
-        /// </summary>
+        
         public string GenerarUrlHtml()
         {
             if (_urlHtml != null) return _urlHtml;
@@ -33,7 +31,6 @@ namespace PruebaRider.Servicios
                     ? File.ReadAllText(Documento.Ruta)
                     : Documento.TextoOriginal ?? "Contenido no disponible";
                 
-                // HTML limpio y simple
                 string html = $@"<!DOCTYPE html>
 <html>
 <head>
@@ -66,10 +63,7 @@ namespace PruebaRider.Servicios
                 return "Error generando URL";
             }
         }
-
-        /// <summary>
-        /// Obtener vista previa del contenido (solo unas líneas)
-        /// </summary>
+        
         public string ObtenerVistaPrevia()
         {
             try

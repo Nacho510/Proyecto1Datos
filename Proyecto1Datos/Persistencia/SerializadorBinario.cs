@@ -7,13 +7,12 @@ using PruebaRider.Estructura.Nodo;
 namespace PruebaRider.Persistencia
 {
     /// <summary>
-    /// Serializador binario optimizado que soluciona el problema de múltiples archivos
-    /// y mejora significativamente el rendimiento de E/S
+    /// Serializador binario para varios archivos
     /// </summary>
     public class SerializadorBinario
     {
-        private const int BUFFER_SIZE = 8192; // Buffer más grande para mejor rendimiento
-        private const byte VERSION_FORMATO = 2; // Versión del formato para compatibilidad futura
+        private const int BUFFER_SIZE = 8192; 
+        private const byte VERSION_FORMATO = 2; 
 
         public void GuardarIndice(string rutaArchivo, ListaDobleEnlazada<Termino> indice, ListaDobleEnlazada<Documento> documentos)
         {
@@ -27,19 +26,15 @@ namespace PruebaRider.Persistencia
             using (var fs = new FileStream(rutaArchivo, FileMode.Create, FileAccess.Write, FileShare.None, BUFFER_SIZE))
             using (var writer = new BinaryWriter(fs, Encoding.UTF8))
             {
-                // Escribir cabecera del formato
                 writer.Write(VERSION_FORMATO);
-                writer.Write(DateTime.UtcNow.ToBinary()); // Timestamp de creación
+                writer.Write(DateTime.UtcNow.ToBinary());
                 
-                // FASE 1: Escribir documentos de forma optimizada
                 EscribirDocumentosOptimizado(writer, documentos);
                 
-                // FASE 2: Escribir términos del índice de forma optimizada  
                 EscribirTerminosOptimizado(writer, indice);
                 
-                // Escribir checksum simple para verificar integridad
                 long posicionFinal = fs.Position;
-                writer.Write(posicionFinal); // Checksum básico
+                writer.Write(posicionFinal); 
             }
         }
 
@@ -52,18 +47,15 @@ namespace PruebaRider.Persistencia
             {
                 var doc = iteradorDocs.Current;
                 
-                // Escribir datos básicos del documento
                 writer.Write(doc.Id);
                 EscribirCadenaOptimizada(writer, doc.Ruta);
                 EscribirCadenaOptimizada(writer, doc.Tokens ?? "");
                 
-                // OPTIMIZACIÓN: No guardar texto original completo si es muy grande
                 string textoParaGuardar = doc.TextoOriginal?.Length > 10000 
                     ? doc.TextoOriginal.Substring(0, 1000) + "[TRUNCADO]"
                     : doc.TextoOriginal ?? "";
                 EscribirCadenaOptimizada(writer, textoParaGuardar);
 
-                // Escribir frecuencias del documento de forma compacta
                 writer.Write(doc.Frecuencias.Count);
                 var iteradorFrecs = new Iterador<TerminoFrecuencia>(doc.Frecuencias);
                 while (iteradorFrecs.Siguiente())
@@ -111,7 +103,6 @@ namespace PruebaRider.Persistencia
             using (var fs = new FileStream(rutaArchivo, FileMode.Open, FileAccess.Read, FileShare.Read, BUFFER_SIZE))
             using (var reader = new BinaryReader(fs, Encoding.UTF8))
             {
-                // Leer y validar cabecera
                 byte version = reader.ReadByte();
                 if (version > VERSION_FORMATO)
                 {
@@ -120,17 +111,13 @@ namespace PruebaRider.Persistencia
                 
                 long timestamp = reader.ReadInt64(); // Timestamp (para futuras validaciones)
                 
-                // Cargar documentos
                 CargarDocumentosOptimizado(reader, documentos);
                 
-                // Cargar términos
                 CargarTerminosOptimizado(reader, documentos, indice);
                 
-                // Validar checksum básico
                 if (fs.Position < fs.Length)
                 {
                     long checksumEsperado = reader.ReadInt64();
-                    // Validación básica - en una implementación real sería más robusta
                 }
             }
 
@@ -176,15 +163,13 @@ namespace PruebaRider.Persistencia
                 var termino = new Termino(palabra);
                 termino.Idf = idf;
                 
-                // CORRECCIÓN: Leer correctamente los DocumentoFrecuencia
                 int cantidadDocsTermino = reader.ReadInt32();
                 for (int j = 0; j < cantidadDocsTermino; j++)
                 {
                     int docId = reader.ReadInt32();
                     int frecuenciaTf = reader.ReadInt32();
-                    double tfIdf = reader.ReadDouble(); // ESTA LÍNEA FALTABA
+                    double tfIdf = reader.ReadDouble(); 
                     
-                    // Buscar el documento por ID de forma optimizada
                     var documento = BuscarDocumentoPorId(documentos, docId);
                     if (documento != null)
                     {
@@ -196,10 +181,7 @@ namespace PruebaRider.Persistencia
                 indice.Agregar(termino);
             }
         }
-
-        /// <summary>
-        /// Búsqueda optimizada de documento por ID
-        /// </summary>
+        
         private Documento BuscarDocumentoPorId(ListaDobleEnlazada<Documento> documentos, int id)
         {
             var iterador = new Iterador<Documento>(documentos);
@@ -210,10 +192,7 @@ namespace PruebaRider.Persistencia
             }
             return null;
         }
-
-        /// <summary>
-        /// Escritura optimizada de cadenas con compresión básica
-        /// </summary>
+        
         private void EscribirCadenaOptimizada(BinaryWriter writer, string texto)
         {
             if (string.IsNullOrEmpty(texto))
@@ -222,10 +201,8 @@ namespace PruebaRider.Persistencia
                 return;
             }
             
-            // OPTIMIZACIÓN: Usar UTF-8 que es más eficiente en espacio para texto español
             byte[] bytes = Encoding.UTF8.GetBytes(texto);
             
-            // OPTIMIZACIÓN: Compresión básica para cadenas repetitivas
             if (bytes.Length > 100 && ContienePatronesRepetitivos(texto))
             {
                 bytes = ComprimirCadenaBasica(bytes);
@@ -238,10 +215,7 @@ namespace PruebaRider.Persistencia
             
             writer.Write(bytes);
         }
-
-        /// <summary>
-        /// Lectura optimizada de cadenas con descompresión
-        /// </summary>
+        
         private string LeerCadenaOptimizada(BinaryReader reader)
         {
             int longitud = reader.ReadInt32();
@@ -261,10 +235,7 @@ namespace PruebaRider.Persistencia
             byte[] bytes = reader.ReadBytes(longitud);
             return Encoding.UTF8.GetString(bytes);
         }
-
-        /// <summary>
-        /// Detectar patrones repetitivos para compresión
-        /// </summary>
+        
         private bool ContienePatronesRepetitivos(string texto)
         {
             // Heurística simple: si tiene más de 30% de espacios, probablemente se pueda comprimir
@@ -276,10 +247,7 @@ namespace PruebaRider.Persistencia
             
             return (double)espacios / texto.Length > 0.3;
         }
-
-        /// <summary>
-        /// Compresión básica de cadenas (RLE simple para espacios)
-        /// </summary>
+        
         private byte[] ComprimirCadenaBasica(byte[] datos)
         {
             // Implementación simple de Run-Length Encoding para espacios
@@ -317,10 +285,7 @@ namespace PruebaRider.Persistencia
             
             return resultado.ToArray();
         }
-
-        /// <summary>
-        /// Descompresión básica de cadenas
-        /// </summary>
+        
         private byte[] DescomprimirCadenaBasica(byte[] datosComprimidos)
         {
             var resultado = new List<byte>();
@@ -345,89 +310,10 @@ namespace PruebaRider.Persistencia
             
             return resultado.ToArray();
         }
-
-        /// <summary>
-        /// Validar integridad del archivo antes de cargar
-        /// </summary>
-        public bool ValidarIntegridad(string rutaArchivo)
-        {
-            try
-            {
-                if (!File.Exists(rutaArchivo))
-                    return false;
-
-                using (var fs = new FileStream(rutaArchivo, FileMode.Open, FileAccess.Read))
-                using (var reader = new BinaryReader(fs))
-                {
-                    if (fs.Length < 10) // Archivo demasiado pequeño
-                        return false;
-
-                    byte version = reader.ReadByte();
-                    if (version > VERSION_FORMATO)
-                        return false;
-
-                    // Validaciones adicionales básicas
-                    long timestamp = reader.ReadInt64();
-                    if (timestamp < 0)
-                        return false;
-
-                    return true;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Obtener información del archivo sin cargarlo completamente
-        /// </summary>
-        public InfoArchivo ObtenerInfoArchivo(string rutaArchivo)
-        {
-            var info = new InfoArchivo();
-            
-            try
-            {
-                if (!File.Exists(rutaArchivo))
-                {
-                    info.Existe = false;
-                    return info;
-                }
-
-                var fileInfo = new FileInfo(rutaArchivo);
-                info.Existe = true;
-                info.TamañoBytes = fileInfo.Length;
-                info.FechaModificacion = fileInfo.LastWriteTime;
-
-                using (var fs = new FileStream(rutaArchivo, FileMode.Open, FileAccess.Read))
-                using (var reader = new BinaryReader(fs))
-                {
-                    if (fs.Length >= 9)
-                    {
-                        info.Version = reader.ReadByte();
-                        info.FechaCreacion = DateTime.FromBinary(reader.ReadInt64());
-                        
-                        // Leer conteos sin cargar todo
-                        if (fs.Length > 20)
-                        {
-                            info.NumeroDocumentos = reader.ReadInt32();
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                info.Error = ex.Message;
-            }
-
-            return info;
-        }
+        
+        
     }
-
-    /// <summary>
-    /// Información básica del archivo de índice
-    /// </summary>
+    
     public class InfoArchivo
     {
         public bool Existe { get; set; }

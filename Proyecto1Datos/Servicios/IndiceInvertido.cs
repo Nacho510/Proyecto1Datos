@@ -2,17 +2,18 @@
 using PruebaRider.Modelo;
 using PruebaRider.Estructura.Nodo;
 using PruebaRider.Estructura.Vector;
+using PruebaRider.Estructura.ColeccionOrdenada; // NUEVO: Para VectorOrdenado
 using PruebaRider.Persistencia;
-using PruebaRider.Strategy;
+using PruebaRider.Strategy; // NUEVO: Para EstrategiaZipfConservadora
 
 namespace PruebaRider.Servicios
 {
     /// <summary>
-    /// Índice Invertido simplificado manteniendo TUS estructuras implementadas
+    /// Índice Invertido, sin mas que decir
     /// </summary>
     public class IndiceInvertido
     {
-        private VectorOrdenado<Termino> indiceTerminos;
+        private VectorOrdenado<Termino> indiceTerminos; 
         private ListaDobleEnlazada<Documento> documentos;
         private ProcesadorDeTexto procesador;
         private SerializadorBinario serializador;
@@ -28,27 +29,14 @@ namespace PruebaRider.Servicios
             contadorDocumentos = 0;
             zipfAplicado = false;
         }
-
-        /// <summary>
-        /// Crear índice CON Ley de Zipf obligatoria
-        /// </summary>
+        
         public async Task CrearDesdeRuta(string rutaDirectorio, int percentilZipf = 15)
         {
             Limpiar();
-            
-            // 1. Cargar documentos
             await CargarDirectorio(rutaDirectorio);
-            
-            // 2. RadixSort ANTES de Zipf
             indiceTerminos.OrdenarRadix();
-            
-            // 3. Aplicar Ley de Zipf (OBLIGATORIO)
             await AplicarLeyDeZipf(percentilZipf);
-            
-            // 4. Calcular TF-IDF
             CalcularMetricasTfIdf();
-            
-            // 5. Reordenar final
             indiceTerminos.OrdenarRadix();
         }
 
@@ -74,11 +62,12 @@ namespace PruebaRider.Servicios
                 string contenido = await File.ReadAllTextAsync(rutaArchivo);
                 if (string.IsNullOrWhiteSpace(contenido)) return;
 
+                // CORREGIDO: Ahora procesador devuelve string[] directamente
                 var tokens = procesador.ProcesarTextoCompleto(contenido);
-                if (tokens.Count == 0) return;
+                if (tokens.Length == 0) return;
 
                 var documento = new Documento(++contadorDocumentos, contenido, rutaArchivo);
-                documento.CalcularFrecuenciasArray(tokens.ToArray());
+                documento.CalcularFrecuenciasArray(tokens); // CORRECTO: Recibe string[]
                 documentos.Agregar(documento);
 
                 ProcesarTerminosDelDocumento(documento, tokens);
@@ -89,7 +78,7 @@ namespace PruebaRider.Servicios
             }
         }
 
-        private void ProcesarTerminosDelDocumento(Documento documento, ArrayDinamico tokens)
+        private void ProcesarTerminosDelDocumento(Documento documento, string[] tokens)
         {
             var frecuenciasLocales = ContarFrecuenciasLocales(tokens);
 
@@ -99,23 +88,21 @@ namespace PruebaRider.Servicios
                 AgregarTerminoAlIndice(tf.Token, documento, tf.Frecuencia);
             }
         }
-
-        private TerminoFrecuencia[] ContarFrecuenciasLocales(ArrayDinamico tokens)
+        private TerminoFrecuencia[] ContarFrecuenciasLocales(string[] tokens)
         {
-            var resultado = new TerminoFrecuencia[tokens.Count];
+            var resultado = new TerminoFrecuencia[tokens.Length];
             int cantidadUnicos = 0;
 
-            var iterador = tokens.ObtenerIterador();
-            while (iterador.Siguiente())
+            for (int i = 0; i < tokens.Length; i++)
             {
-                string token = iterador.Current.ToLowerInvariant();
+                string token = tokens[i].ToLowerInvariant();
                 bool encontrado = false;
 
-                for (int i = 0; i < cantidadUnicos; i++)
+                for (int j = 0; j < cantidadUnicos; j++)
                 {
-                    if (resultado[i].Token == token)
+                    if (resultado[j].Token == token)
                     {
-                        resultado[i].Frecuencia++;
+                        resultado[j].Frecuencia++;
                         encontrado = true;
                         break;
                     }
@@ -148,10 +135,7 @@ namespace PruebaRider.Servicios
                 terminoExistente.AgregarDocumento(documento, frecuencia);
             }
         }
-
-        /// <summary>
-        /// Aplicar Ley de Zipf SIMPLIFICADA pero efectiva
-        /// </summary>
+        
         private async Task AplicarLeyDeZipf(int percentil)
         {
             if (indiceTerminos.Count == 0) return;
@@ -166,13 +150,10 @@ namespace PruebaRider.Servicios
                 listaTerminos.Agregar(iterador.Current);
             }
 
-            // Crear estrategia simple: eliminar términos más frecuentes
-            var estrategia = new EliminarTerminosFrecuentesConservadora(listaTerminos, documentos.Count);
+            var estrategia = new EstrategiaZipfConservadora(listaTerminos, documentos.Count);
             var contexto = new ContextoZipf();
             contexto.EstablecerEstrategia(estrategia);
             contexto.AplicarLeyZipf(percentil);
-
-            // Reconstruir vector ordenado
             indiceTerminos.Limpiar();
             var iteradorNuevo = new Iterador<Termino>(listaTerminos);
             while (iteradorNuevo.Siguiente())
@@ -210,7 +191,6 @@ namespace PruebaRider.Servicios
             }
         }
 
-        // PERSISTENCIA manteniendo TU SerializadorBinario
         public void GuardarEnArchivoBinario(string rutaArchivo)
         {
             var listaTerminos = new ListaDobleEnlazada<Termino>();
@@ -237,7 +217,6 @@ namespace PruebaRider.Servicios
             indiceTerminos.OrdenarRadix();
             documentos = documentosNuevos;
 
-            // Recalcular contador
             contadorDocumentos = 0;
             var iteradorDocs = new Iterador<Documento>(documentos);
             while (iteradorDocs.Siguiente())
@@ -256,8 +235,6 @@ namespace PruebaRider.Servicios
             contadorDocumentos = 0;
             zipfAplicado = false;
         }
-
-        // Getters manteniendo TUS estructuras
         public int GetCantidadDocumentos() => documentos.Count;
         public ListaDobleEnlazada<Documento> GetDocumentos() => documentos;
         public VectorOrdenado<Termino> GetIndiceTerminos() => indiceTerminos;
