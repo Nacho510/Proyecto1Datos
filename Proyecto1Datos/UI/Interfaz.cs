@@ -1,346 +1,781 @@
-﻿using System.IO;
+﻿using System;
+using System.Drawing;
+using System.IO;
+using System.Windows.Forms;
+using System.Threading.Tasks;
 using PruebaRider.Servicios;
 using PruebaRider.Estructura.Nodo;
+using System.Diagnostics;
 
 namespace PruebaRider.UI
 {
     /// <summary>
-    /// Interfaz simplificada manteniendo funcionalidad completa
+    /// Interfaz gráfica principal del Motor de Búsqueda
     /// </summary>
-    public class InterfazSimple
+    public partial class FormPrincipal : Form
     {
         private readonly GestorIndice gestor;
         private readonly string directorioDocumentos;
         private readonly string archivoIndice;
 
-        public InterfazSimple()
+        // Controles UI
+        private TextBox txtBusqueda;
+        private Button btnBuscar;
+        private Button btnCrearIndice;
+        private Button btnGuardarIndice;
+        private Button btnCargarIndice;
+        private Button btnEstadisticas;
+        private ListBox lstResultados;
+        private RichTextBox txtVistaPrevia;
+        private Label lblEstado;
+        private Label lblTiempo;
+        private ProgressBar progressBar;
+        private NumericUpDown numZipf;
+
+        public FormPrincipal()
         {
-            gestor = GestorIndice.ObtenerInstancia(); // Patrón Singleton mantenido
+            gestor = GestorIndice.ObtenerInstancia();
             directorioDocumentos = @"C:\Users\ignab\OneDrive\Documents\Estructuras de datos\Documentos";
             archivoIndice = "indice_zipf.bin";
+            
+            InitializeComponent();
+            ConfigurarInterfaz();
+            CargarIndiceExistente();
         }
 
-        public async Task IniciarAsync()
+        private void InitializeComponent()
         {
-            ConfigurarConsola();
-            MostrarBienvenida();
+            this.SuspendLayout();
+
+            // Configuración del formulario
+            this.Text = "Motor de Búsqueda - Índice Invertido + RadixSort + Zipf";
+            this.Size = new Size(1200, 800);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.MinimumSize = new Size(1000, 600);
+            this.Icon = SystemIcons.Application;
+
+            // Panel superior - Búsqueda
+            var panelBusqueda = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 120,
+                BackColor = Color.FromArgb(240, 240, 240),
+                Padding = new Padding(10)
+            };
+
+            var lblBusqueda = new Label
+            {
+                Text = "🔍 Buscar documentos:",
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(10, 10)
+            };
+
+            txtBusqueda = new TextBox
+            {
+                Font = new Font("Segoe UI", 11),
+                Location = new Point(10, 35),
+                Size = new Size(600, 25),
+                PlaceholderText = "Ingrese términos de búsqueda..."
+            };
+
+            btnBuscar = new Button
+            {
+                Text = "🔍 Buscar",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Location = new Point(620, 35),
+                Size = new Size(100, 25),
+                BackColor = Color.FromArgb(0, 120, 215),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
+            };
+
+            lblTiempo = new Label
+            {
+                Text = "",
+                Font = new Font("Segoe UI", 9),
+                AutoSize = true,
+                Location = new Point(10, 70),
+                ForeColor = Color.FromArgb(100, 100, 100)
+            };
+
+            panelBusqueda.Controls.AddRange(new Control[] { lblBusqueda, txtBusqueda, btnBuscar, lblTiempo });
+
+            // Panel izquierdo - Controles
+            var panelControles = new Panel
+            {
+                Dock = DockStyle.Left,
+                Width = 250,
+                BackColor = Color.FromArgb(250, 250, 250),
+                Padding = new Padding(10)
+            };
+
+            var lblControles = new Label
+            {
+                Text = "🎛️ Controles del Sistema",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(10, 10)
+            };
+
+            btnCrearIndice = CrearBoton("🔨 Crear Índice", new Point(10, 40), Color.FromArgb(16, 124, 16));
+            btnGuardarIndice = CrearBoton("💾 Guardar", new Point(10, 80), Color.FromArgb(138, 43, 226));
+            btnCargarIndice = CrearBoton("📂 Cargar", new Point(10, 120), Color.FromArgb(255, 140, 0));
+            btnEstadisticas = CrearBoton("📊 Estadísticas", new Point(10, 160), Color.FromArgb(70, 130, 180));
+
+            var lblZipf = new Label
+            {
+                Text = "Percentil Zipf:",
+                Font = new Font("Segoe UI", 9),
+                AutoSize = true,
+                Location = new Point(10, 210)
+            };
+
+            numZipf = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 30,
+                Value = 15,
+                Location = new Point(10, 230),
+                Size = new Size(60, 25)
+            };
+
+            lblEstado = new Label
+            {
+                Text = "❌ Sin índice",
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(10, 270),
+                ForeColor = Color.Red
+            };
+
+            progressBar = new ProgressBar
+            {
+                Location = new Point(10, 300),
+                Size = new Size(220, 10),
+                Style = ProgressBarStyle.Marquee,
+                Visible = false
+            };
+
+            panelControles.Controls.AddRange(new Control[] { 
+                lblControles, btnCrearIndice, btnGuardarIndice, btnCargarIndice, 
+                btnEstadisticas, lblZipf, numZipf, lblEstado, progressBar 
+            });
+
+            // Panel central - Resultados
+            var panelResultados = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            var lblResultados = new Label
+            {
+                Text = "📋 Resultados de Búsqueda",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(10, 10)
+            };
+
+            lstResultados = new ListBox
+            {
+                Font = new Font("Consolas", 9),
+                Location = new Point(10, 35),
+                Size = new Size(500, 300),
+                DrawMode = DrawMode.OwnerDrawFixed,
+                ItemHeight = 60
+            };
+
+            var lblVistaPrevia = new Label
+            {
+                Text = "👁️ Vista Previa del Documento",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(10, 350)
+            };
+
+            txtVistaPrevia = new RichTextBox
+            {
+                Location = new Point(10, 375),
+                Size = new Size(500, 200),
+                ReadOnly = true,
+                Font = new Font("Segoe UI", 9),
+                BackColor = Color.FromArgb(248, 248, 248)
+            };
+
+            panelResultados.Controls.AddRange(new Control[] { lblResultados, lstResultados, lblVistaPrevia, txtVistaPrevia });
+
+            // Agregar paneles al formulario
+            this.Controls.Add(panelResultados);
+            this.Controls.Add(panelControles);
+            this.Controls.Add(panelBusqueda);
+
+            // Eventos
+            btnBuscar.Click += BtnBuscar_Click;
+            btnCrearIndice.Click += BtnCrearIndice_Click;
+            btnGuardarIndice.Click += BtnGuardarIndice_Click;
+            btnCargarIndice.Click += BtnCargarIndice_Click;
+            btnEstadisticas.Click += BtnEstadisticas_Click;
+            txtBusqueda.KeyDown += TxtBusqueda_KeyDown;
+            lstResultados.SelectedIndexChanged += LstResultados_SelectedIndexChanged;
+            lstResultados.DoubleClick += LstResultados_DoubleClick;
+            lstResultados.DrawItem += LstResultados_DrawItem;
+
+            this.ResumeLayout(false);
+        }
+
+        private Button CrearBoton(string texto, Point location, Color color)
+        {
+            return new Button
+            {
+                Text = texto,
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                Location = location,
+                Size = new Size(220, 30),
+                BackColor = color,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+        }
+
+        private void ConfigurarInterfaz()
+        {
+            lstResultados.DrawMode = DrawMode.OwnerDrawFixed;
+            lstResultados.ItemHeight = 60;
             
-            // Cargar índice existente si hay
+            // Configurar placeholder para el TextBox
+            if (txtBusqueda != null)
+            {
+                txtBusqueda.GotFocus += (s, e) => {
+                    if (txtBusqueda.ForeColor == Color.Gray)
+                    {
+                        txtBusqueda.Text = "";
+                        txtBusqueda.ForeColor = Color.Black;
+                    }
+                };
+            }
+        }
+
+        private async void CargarIndiceExistente()
+        {
             if (File.Exists(archivoIndice))
             {
-                Console.WriteLine("📂 Cargando índice existente...");
-                gestor.CargarIndice(archivoIndice);
+                MostrarProgreso(true, "Cargando índice existente...");
+                
+                await Task.Run(() => {
+                    gestor.CargarIndice(archivoIndice);
+                });
+                
+                ActualizarEstado();
+                MostrarProgreso(false);
+                
                 var stats = gestor.ObtenerEstadisticas();
-                Console.WriteLine($"✅ {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos");
+                lblTiempo.Text = $"✅ Índice cargado: {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos";
             }
-
-            await EjecutarMenuPrincipal();
         }
 
-        private void ConfigurarConsola()
+        private async void BtnBuscar_Click(object sender, EventArgs e)
         {
-            Console.Title = "Motor de Búsqueda - Índice Invertido + RadixSort + Zipf";
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            await RealizarBusqueda();
         }
 
-        private void MostrarBienvenida()
+        private void TxtBusqueda_KeyDown(object sender, KeyEventArgs e)
         {
-            Console.Clear();
-            Console.WriteLine("╔══════════════════════════════════════════════╗");
-            Console.WriteLine("║         MOTOR DE BÚSQUEDA VECTORIAL          ║");
-            Console.WriteLine("║    Índice Invertido + RadixSort + Zipf       ║");
-            Console.WriteLine("╚══════════════════════════════════════════════╝");
-            Console.WriteLine();
-            Console.WriteLine("🎯 Características:");
-            Console.WriteLine("   ✅ Lista doblemente enlazada circular");
-            Console.WriteLine("   ✅ Vector con operador * sobrecargado");
-            Console.WriteLine("   ✅ RadixSort para ordenamiento");
-            Console.WriteLine("   ✅ Ley de Zipf obligatoria");
-            Console.WriteLine("   ✅ Similitud coseno vectorial");
-            Console.WriteLine();
-        }
-
-        private async Task EjecutarMenuPrincipal()
-        {
-            while (true)
+            if (e.KeyCode == Keys.Enter)
             {
-                MostrarMenu();
-                string opcion = Console.ReadLine()?.Trim();
-                
-                bool salir = await ProcesarOpcion(opcion);
-                if (salir) break;
-                
-                PausarYContinuar();
+                e.SuppressKeyPress = true;
+                _ = RealizarBusqueda();
             }
         }
 
-        private void MostrarMenu()
-        {
-            var stats = gestor.ObtenerEstadisticas();
-            string estado = gestor.IndiceEstaVacio() ? "❌ Sin índice" : 
-                $"✅ {stats.CantidadTerminos} términos{(stats.ZipfAplicado ? " (Zipf✓)" : "")}";
-            
-            Console.WriteLine($"Estado: {estado}");
-            Console.WriteLine();
-            Console.WriteLine("1. 🔍 Buscar documentos");
-            Console.WriteLine("2. 🔨 Crear índice nuevo");
-            Console.WriteLine("3. 💾 Guardar índice");
-            Console.WriteLine("4. 📂 Cargar índice");
-            Console.WriteLine("5. 📊 Ver estadísticas");
-            Console.WriteLine("0. 🚪 Salir");
-            Console.WriteLine();
-            Console.Write("Opción: ");
-        }
-
-        private async Task<bool> ProcesarOpcion(string opcion)
-        {
-            Console.WriteLine();
-            
-            switch (opcion)
-            {
-                case "1": await RealizarBusqueda(); break;
-                case "2": await CrearIndice(); break;
-                case "3": GuardarIndice(); break;
-                case "4": CargarIndice(); break;
-                case "5": MostrarEstadisticas(); break;
-                case "0": return true;
-                default: Console.WriteLine("❌ Opción inválida"); break;
-            }
-            
-            return false;
-        }
-
-       /// <summary>
-        /// BÚSQUEDA CON RESULTADOS LIMPIOS - SIN contenido binario
-        /// </summary>
         private async Task RealizarBusqueda()
         {
             if (gestor.IndiceEstaVacio())
             {
-                Console.WriteLine("❌ No hay índice. Cree uno primero (opción 2).");
+                MessageBox.Show("❌ No hay índice. Cree uno primero.", "Sin Índice", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            Console.Write("Términos de búsqueda: ");
-            string consulta = Console.ReadLine()?.Trim();
-            
+            string consulta = txtBusqueda.Text?.Trim();
             if (string.IsNullOrWhiteSpace(consulta))
             {
-                Console.WriteLine("❌ Consulta vacía");
+                MessageBox.Show("❌ Ingrese términos de búsqueda", "Consulta Vacía", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            Console.WriteLine($"\n🔍 Buscando: '{consulta}'");
-            var inicio = DateTime.Now;
-            var resultados = gestor.BuscarConSimilitudCoseno(consulta);
-            var duracion = DateTime.Now - inicio;
+            MostrarProgreso(true, "Buscando...");
+            lstResultados.Items.Clear();
+            txtVistaPrevia.Clear();
 
-            if (resultados.Count == 0)
+            try
             {
-                Console.WriteLine("❌ No se encontraron documentos relevantes");
-                return;
-            }
+                var inicio = DateTime.Now;
+                var resultados = await Task.Run(() => gestor.BuscarConSimilitudCoseno(consulta));
+                var duracion = DateTime.Now - inicio;
 
-            Console.WriteLine($"\n📊 RESULTADOS ({duracion.TotalMilliseconds:F1} ms)");
-            Console.WriteLine("═".PadRight(60, '═'));
-            
-            // Mostrar resultados LIMPIOS Y CLAROS
-            var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
-            int posicion = 1;
-            
-            while (iterador.Siguiente() && posicion <= 10)
-            {
-                var resultado = iterador.Current;
-                string archivo = Path.GetFileName(resultado.Documento.Ruta);
-                double porcentaje = resultado.SimilitudCoseno * 100;
-                
-                Console.WriteLine($"{posicion}. 📄 {archivo}");
-                Console.WriteLine($"   🎯 Similitud: {porcentaje:F1}%");
-                Console.WriteLine($"   📝 Vista previa: {resultado.ObtenerVistaPrevia()}");
-                Console.WriteLine($"   📁 Ruta: {resultado.Documento.Ruta}");
-                
-                // Opción para generar URL
-                Console.WriteLine($"   🔗 Para ver contenido completo, presione 'v' + {posicion}");
-                
-                Console.WriteLine();
-                posicion++;
-            }
-
-            if (resultados.Count > 10)
-            {
-                Console.WriteLine($"... y {resultados.Count - 10} resultado(s) más");
-            }
-
-            // Opción interactiva para ver documentos
-            Console.WriteLine("\n💡 OPCIONES:");
-            Console.WriteLine("   • Presione Enter para nueva búsqueda");
-            Console.WriteLine("   • Escriba 'v1', 'v2', etc. para ver documento completo");
-            Console.Write("Opción: ");
-            
-            string opcion = Console.ReadLine()?.Trim().ToLower();
-            
-            if (opcion.StartsWith("v") && opcion.Length > 1)
-            {
-                if (int.TryParse(opcion.Substring(1), out int num) && num >= 1 && num <= Math.Min(10, resultados.Count))
+                if (resultados.Count == 0)
                 {
-                    MostrarDocumentoCompleto(resultados, num - 1);
+                    lblTiempo.Text = "❌ No se encontraron documentos relevantes";
+                    return;
+                }
+
+                // Cargar resultados en la lista
+                var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
+                int posicion = 1;
+                
+                while (iterador.Siguiente() && posicion <= 20)
+                {
+                    var resultado = iterador.Current;
+                    lstResultados.Items.Add(resultado);
+                    posicion++;
+                }
+
+                lblTiempo.Text = $"✅ {resultados.Count} resultado(s) en {duracion.TotalMilliseconds:F1} ms";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"❌ Error en búsqueda: {ex.Message}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                MostrarProgreso(false);
+            }
+        }
+
+        private void LstResultados_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstResultados.SelectedItem is ResultadoBusquedaVectorial resultado)
+            {
+                MostrarVistaPrevia(resultado);
+            }
+        }
+
+        private void LstResultados_DoubleClick(object sender, EventArgs e)
+        {
+            if (lstResultados.SelectedItem is ResultadoBusquedaVectorial resultado)
+            {
+                AbrirDocumentoEnNavegador(resultado);
+            }
+        }
+
+        private void LstResultados_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= lstResultados.Items.Count) return;
+
+            var resultado = lstResultados.Items[e.Index] as ResultadoBusquedaVectorial;
+            if (resultado == null) return;
+
+            e.DrawBackground();
+
+            var rect = e.Bounds;
+            var archivo = Path.GetFileName(resultado.Documento.Ruta);
+            var similitud = resultado.SimilitudCoseno * 100;
+
+            // Colores
+            var colorTitulo = e.State.HasFlag(DrawItemState.Selected) ? Color.White : Color.FromArgb(0, 120, 215);
+            var colorSimilitud = e.State.HasFlag(DrawItemState.Selected) ? Color.LightGray : Color.FromArgb(0, 150, 0);
+            var colorPreview = e.State.HasFlag(DrawItemState.Selected) ? Color.LightGray : Color.Gray;
+
+            using (var g = e.Graphics)
+            {
+                // Título del archivo
+                using (var brushTitulo = new SolidBrush(colorTitulo))
+                using (var fontTitulo = new Font("Segoe UI", 10, FontStyle.Bold))
+                {
+                    g.DrawString($"📄 {archivo}", fontTitulo, brushTitulo, 
+                        new RectangleF(rect.X + 5, rect.Y + 5, rect.Width - 10, 20));
+                }
+
+                // Similitud
+                using (var brushSimilitud = new SolidBrush(colorSimilitud))
+                using (var fontSimilitud = new Font("Segoe UI", 9, FontStyle.Bold))
+                {
+                    g.DrawString($"🎯 Similitud: {similitud:F1}%", fontSimilitud, brushSimilitud, 
+                        new RectangleF(rect.X + 5, rect.Y + 25, rect.Width - 10, 15));
+                }
+
+                // Vista previa
+                var preview = resultado.ObtenerVistaPrevia();
+                if (preview.Length > 80) preview = preview.Substring(0, 80) + "...";
+                
+                using (var brushPreview = new SolidBrush(colorPreview))
+                using (var fontPreview = new Font("Segoe UI", 8))
+                {
+                    g.DrawString($"📝 {preview}", fontPreview, brushPreview, 
+                        new RectangleF(rect.X + 5, rect.Y + 40, rect.Width - 10, 15));
+                }
+            }
+
+            e.DrawFocusRectangle();
+        }
+
+        private void MostrarVistaPrevia(ResultadoBusquedaVectorial resultado)
+        {
+            try
+            {
+                string contenido = File.Exists(resultado.Documento.Ruta) 
+                    ? File.ReadAllText(resultado.Documento.Ruta)
+                    : resultado.Documento.TextoOriginal ?? "Contenido no disponible";
+
+                // Limitar contenido para vista previa
+                if (contenido.Length > 2000)
+                    contenido = contenido.Substring(0, 2000) + "\n\n[... contenido truncado ...]";
+
+                txtVistaPrevia.Text = contenido;
+            }
+            catch (Exception ex)
+            {
+                txtVistaPrevia.Text = $"Error cargando vista previa: {ex.Message}";
+            }
+        }
+
+        private void AbrirDocumentoEnNavegador(ResultadoBusquedaVectorial resultado)
+        {
+            try
+            {
+                // Generar URL HTML y abrirla automáticamente
+                string urlHtml = resultado.GenerarUrlHtml();
+                
+                // Decodificar la URL base64 y crear archivo temporal
+                if (urlHtml.StartsWith("data:text/html;charset=utf-8;base64,"))
+                {
+                    string base64 = urlHtml.Substring("data:text/html;charset=utf-8;base64,".Length);
+                    byte[] htmlBytes = Convert.FromBase64String(base64);
+                    string htmlContent = System.Text.Encoding.UTF8.GetString(htmlBytes);
+                    
+                    // Crear archivo temporal
+                    string tempFile = Path.Combine(Path.GetTempPath(), $"documento_{resultado.Documento.Id}.html");
+                    File.WriteAllText(tempFile, htmlContent, System.Text.Encoding.UTF8);
+                    
+                    // Abrir en navegador predeterminado
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = tempFile,
+                        UseShellExecute = true
+                    });
+                    
+                    lblTiempo.Text = $"🌐 Abriendo documento en navegador: {Path.GetFileName(resultado.Documento.Ruta)}";
                 }
                 else
                 {
-                    Console.WriteLine("❌ Número inválido");
+                    MessageBox.Show("Error generando URL del documento", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
-        }
-
-        /// <summary>
-        /// Mostrar documento específico con URL
-        /// </summary>
-        private void MostrarDocumentoCompleto(ListaDobleEnlazada<ResultadoBusquedaVectorial> resultados, int indice)
-        {
-            var iterador = new Iterador<ResultadoBusquedaVectorial>(resultados);
-            int contador = 0;
-            
-            while (iterador.Siguiente())
+            catch (Exception ex)
             {
-                if (contador == indice)
-                {
-                    var resultado = iterador.Current;
-                    
-                    Console.WriteLine($"\n📄 DOCUMENTO COMPLETO");
-                    Console.WriteLine("═".PadRight(40, '═'));
-                    Console.WriteLine($"Archivo: {Path.GetFileName(resultado.Documento.Ruta)}");
-                    Console.WriteLine($"Similitud: {resultado.SimilitudCoseno * 100:F1}%");
-                    Console.WriteLine($"Ruta: {resultado.Documento.Ruta}");
-                    Console.WriteLine();
-                    
-                    Console.WriteLine("🔗 URL para navegador:");
-                    Console.WriteLine("(Copie toda la línea siguiente y péguela en su navegador)");
-                    Console.WriteLine();
-                    Console.WriteLine(resultado.GenerarUrlHtml());
-                    Console.WriteLine();
-                    
-                    break;
-                }
-                contador++;
+                MessageBox.Show($"Error abriendo documento: {ex.Message}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private async Task CrearIndice()
+        private async void BtnCrearIndice_Click(object sender, EventArgs e)
         {
             if (!Directory.Exists(directorioDocumentos))
             {
-                Console.WriteLine($"❌ Directorio no encontrado: {directorioDocumentos}");
+                MessageBox.Show($"❌ Directorio no encontrado:\n{directorioDocumentos}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             var archivos = Directory.GetFiles(directorioDocumentos, "*.txt");
             if (archivos.Length == 0)
             {
-                Console.WriteLine("❌ No hay archivos .txt");
+                MessageBox.Show("❌ No se encontraron archivos .txt en el directorio", 
+                    "Sin Archivos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            Console.WriteLine($"📁 {archivos.Length} archivos encontrados");
-            
-            // Configurar Zipf
-            Console.Write("Percentil Zipf (1-30) [15]: ");
-            string input = Console.ReadLine()?.Trim();
-            int percentil = 15;
-            if (!string.IsNullOrEmpty(input) && int.TryParse(input, out int p))
-            {
-                percentil = Math.Max(1, Math.Min(30, p));
-            }
+            var confirmacion = MessageBox.Show(
+                $"Se encontraron {archivos.Length} archivos .txt.\n\n" +
+                $"Percentil Zipf: {numZipf.Value}%\n\n" +
+                "¿Desea crear el índice?",
+                "Confirmar Creación",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question
+            );
 
-            Console.WriteLine($"\n🚀 Creando índice con Zipf {percentil}%...");
-            var inicio = DateTime.Now;
-            
-            bool exito = await gestor.CrearIndiceDesdeDirectorio(directorioDocumentos, percentil);
-            
-            if (exito)
+            if (confirmacion != DialogResult.Yes) return;
+
+            MostrarProgreso(true, "Creando índice...");
+
+            try
             {
-                var duracion = DateTime.Now - inicio;
-                var stats = gestor.ObtenerEstadisticas();
-                
-                Console.WriteLine($"✅ Índice creado en {duracion.TotalSeconds:F1}s");
-                Console.WriteLine($"📊 {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos");
-                
-                // Guardar automáticamente
-                gestor.GuardarIndice(archivoIndice);
-                Console.WriteLine($"💾 Guardado en {archivoIndice}");
+                var inicio = DateTime.Now;
+                bool exito = await gestor.CrearIndiceDesdeDirectorio(directorioDocumentos, (int)numZipf.Value);
+
+                if (exito)
+                {
+                    var duracion = DateTime.Now - inicio;
+                    var stats = gestor.ObtenerEstadisticas();
+
+                    // Guardar automáticamente
+                    gestor.GuardarIndice(archivoIndice);
+
+                    lblTiempo.Text = $"✅ Índice creado en {duracion.TotalSeconds:F1}s - {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos";
+                    ActualizarEstado();
+
+                    MessageBox.Show(
+                        $"✅ Índice creado exitosamente\n\n" +
+                        $"⏱️ Tiempo: {duracion.TotalSeconds:F1} segundos\n" +
+                        $"📄 Documentos: {stats.CantidadDocumentos}\n" +
+                        $"🔤 Términos: {stats.CantidadTerminos}\n" +
+                        $"🔥 Zipf aplicado: {numZipf.Value}%",
+                        "Índice Creado",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+                else
+                {
+                    MessageBox.Show("❌ Error creando el índice", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"❌ Error: {ex.Message}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                MostrarProgreso(false);
             }
         }
 
-        private void GuardarIndice()
+        private void BtnGuardarIndice_Click(object sender, EventArgs e)
         {
             if (gestor.IndiceEstaVacio())
             {
-                Console.WriteLine("❌ No hay índice para guardar");
+                MessageBox.Show("❌ No hay índice para guardar", "Sin Índice", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (gestor.GuardarIndice(archivoIndice))
+            try
             {
-                var info = new FileInfo(archivoIndice);
-                Console.WriteLine($"✅ Guardado: {archivoIndice} ({info.Length / 1024:F1} KB)");
+                if (gestor.GuardarIndice(archivoIndice))
+                {
+                    var info = new FileInfo(archivoIndice);
+                    lblTiempo.Text = $"✅ Guardado: {archivoIndice} ({info.Length / 1024:F1} KB)";
+                    
+                    MessageBox.Show($"✅ Índice guardado exitosamente\n\nArchivo: {archivoIndice}\nTamaño: {info.Length / 1024:F1} KB", 
+                        "Guardado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show("❌ Error al guardar el índice", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Console.WriteLine("❌ Error al guardar");
+                MessageBox.Show($"❌ Error: {ex.Message}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void CargarIndice()
+        private void BtnCargarIndice_Click(object sender, EventArgs e)
         {
-            if (!File.Exists(archivoIndice))
+            using (var dialog = new OpenFileDialog())
             {
-                Console.WriteLine($"❌ Archivo no encontrado: {archivoIndice}");
-                return;
-            }
+                dialog.Filter = "Archivos de Índice (*.bin)|*.bin|Todos los archivos (*.*)|*.*";
+                dialog.DefaultExt = "bin";
+                dialog.Title = "Cargar Índice";
 
-            if (gestor.CargarIndice(archivoIndice))
-            {
-                var stats = gestor.ObtenerEstadisticas();
-                Console.WriteLine($"✅ Cargado: {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos");
-                if (stats.ZipfAplicado)
-                    Console.WriteLine("🔥 Ley de Zipf aplicada");
-            }
-            else
-            {
-                Console.WriteLine("❌ Error al cargar");
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        if (gestor.CargarIndice(dialog.FileName))
+                        {
+                            var stats = gestor.ObtenerEstadisticas();
+                            ActualizarEstado();
+                            lblTiempo.Text = $"✅ Cargado: {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos";
+                            
+                            MessageBox.Show($"✅ Índice cargado exitosamente\n\n" +
+                                $"📄 Documentos: {stats.CantidadDocumentos}\n" +
+                                $"🔤 Términos: {stats.CantidadTerminos}\n" +
+                                $"🔥 Zipf aplicado: {(stats.ZipfAplicado ? "Sí" : "No")}", 
+                                "Cargado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("❌ Error al cargar el índice", "Error", 
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"❌ Error: {ex.Message}", "Error", 
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
             }
         }
 
-        private void MostrarEstadisticas()
+        private void BtnConfiguracion_Click(object sender, EventArgs e)
+        {
+            using (var formConfig = new FormConfiguracion(directorioDocumentos, (int)numZipf.Value))
+            {
+                if (formConfig.ShowDialog(this) == DialogResult.OK)
+                {
+                    // Actualizar configuración si fue modificada
+                    if (formConfig.ConfiguracionModificada)
+                    {
+                        // Actualizar directorio de documentos
+                        if (formConfig.DirectorioDocumentos != directorioDocumentos)
+                        {
+                            var resultado = MessageBox.Show(
+                                "Se ha cambiado el directorio de documentos.\n\n" +
+                                "¿Desea crear un nuevo índice con la nueva configuración?",
+                                "Configuración Modificada",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Question
+                            );
+
+                            if (resultado == DialogResult.Yes)
+                            {
+                                // Actualizar configuración y crear índice
+                                numZipf.Value = formConfig.PercentilZipf;
+                                _ = CrearIndiceConNuevaConfiguracion(formConfig.DirectorioDocumentos, formConfig.PercentilZipf);
+                            }
+                        }
+                        else
+                        {
+                            // Solo actualizar percentil Zipf
+                            numZipf.Value = formConfig.PercentilZipf;
+                            lblTiempo.Text = $"⚙️ Configuración actualizada - Zipf: {formConfig.PercentilZipf}%";
+                        }
+                    }
+                }
+            }
+        }
+
+        private async Task CrearIndiceConNuevaConfiguracion(string nuevoDirectorio, int nuevoZipf)
+        {
+            if (!Directory.Exists(nuevoDirectorio))
+            {
+                MessageBox.Show($"❌ Directorio no encontrado: {nuevoDirectorio}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var archivos = Directory.GetFiles(nuevoDirectorio, "*.txt");
+            if (archivos.Length == 0)
+            {
+                MessageBox.Show("❌ No se encontraron archivos .txt en el nuevo directorio", 
+                    "Sin Archivos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            MostrarProgreso(true, "Creando índice con nueva configuración...");
+
+            try
+            {
+                var inicio = DateTime.Now;
+                
+                // Actualizar la variable de instancia
+                var directorioAnterior = directorioDocumentos;
+                typeof(FormPrincipal).GetField("directorioDocumentos", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.SetValue(this, nuevoDirectorio);
+
+                bool exito = await gestor.CrearIndiceDesdeDirectorio(nuevoDirectorio, nuevoZipf);
+
+                if (exito)
+                {
+                    var duracion = DateTime.Now - inicio;
+                    var stats = gestor.ObtenerEstadisticas();
+
+                    // Guardar automáticamente
+                    gestor.GuardarIndice(archivoIndice);
+
+                    lblTiempo.Text = $"✅ Índice recreado en {duracion.TotalSeconds:F1}s - {stats.CantidadDocumentos} docs, {stats.CantidadTerminos} términos";
+                    ActualizarEstado();
+
+                    MessageBox.Show(
+                        $"✅ Índice recreado exitosamente con nueva configuración\n\n" +
+                        $"📁 Nuevo directorio: {Path.GetFileName(nuevoDirectorio)}\n" +
+                        $"⏱️ Tiempo: {duracion.TotalSeconds:F1} segundos\n" +
+                        $"📄 Documentos: {stats.CantidadDocumentos}\n" +
+                        $"🔤 Términos: {stats.CantidadTerminos}\n" +
+                        $"🔥 Zipf aplicado: {nuevoZipf}%",
+                        "Índice Recreado",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+                else
+                {
+                    // Restaurar directorio anterior en caso de error
+                    typeof(FormPrincipal).GetField("directorioDocumentos", 
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                        ?.SetValue(this, directorioAnterior);
+
+                    MessageBox.Show("❌ Error creando el índice con la nueva configuración", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"❌ Error: {ex.Message}", "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                MostrarProgreso(false);
+            }
+        }
+
+        private void BtnEstadisticas_Click(object sender, EventArgs e)
         {
             if (gestor.IndiceEstaVacio())
             {
-                Console.WriteLine("❌ No hay índice cargado");
+                MessageBox.Show("❌ No hay índice cargado", "Sin Índice", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
+            // Abrir formulario de estadísticas detalladas
+            using (var formEstadisticas = new FormEstadisticas())
+            {
+                formEstadisticas.ShowDialog(this);
+            }
+        }
+
+        private void MostrarProgreso(bool mostrar, string mensaje = "")
+        {
+            progressBar.Visible = mostrar;
+            if (mostrar)
+            {
+                lblTiempo.Text = mensaje;
+                this.Cursor = Cursors.WaitCursor;
+            }
+            else
+            {
+                this.Cursor = Cursors.Default;
+            }
+            Application.DoEvents();
+        }
+
+        private void ActualizarEstado()
+        {
             var stats = gestor.ObtenerEstadisticas();
-            
-            Console.WriteLine("📊 ESTADÍSTICAS DEL SISTEMA");
-            Console.WriteLine("═".PadRight(30, '═'));
-            Console.WriteLine($"📄 Documentos: {stats.CantidadDocumentos}");
-            Console.WriteLine($"🔤 Términos: {stats.CantidadTerminos}");
-            Console.WriteLine($"🔥 Zipf aplicado: {(stats.ZipfAplicado ? "✅ Sí" : "❌ No")}");
-            Console.WriteLine($"⚡ RadixSort: ✅ Aplicado");
-            Console.WriteLine($"🎯 Similitud: ✅ Coseno vectorial");
-            
-            if (File.Exists(archivoIndice))
+            if (gestor.IndiceEstaVacio())
             {
-                var info = new FileInfo(archivoIndice);
-                Console.WriteLine($"💾 Archivo: {info.Length / 1024:F1} KB");
+                lblEstado.Text = "❌ Sin índice";
+                lblEstado.ForeColor = Color.Red;
             }
-        }
-
-        private void PausarYContinuar()
-        {
-            Console.WriteLine();
-            Console.Write("Presiona Enter...");
-            Console.ReadLine();
-            Console.Clear();
+            else
+            {
+                lblEstado.Text = $"✅ {stats.CantidadTerminos} términos{(stats.ZipfAplicado ? " (Zipf✓)" : "")}";
+                lblEstado.ForeColor = Color.Green;
+            }
         }
     }
 }
