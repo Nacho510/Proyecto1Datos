@@ -8,9 +8,6 @@ using PruebaRider.Strategy; // NUEVO: Para EstrategiaZipfConservadora
 
 namespace PruebaRider.Servicios
 {
-    /// <summary>
-    /// Índice Invertido, sin mas que decir
-    /// </summary>
     public class IndiceInvertido
     {
         private VectorOrdenado<Termino> indiceTerminos; 
@@ -62,12 +59,11 @@ namespace PruebaRider.Servicios
                 string contenido = await File.ReadAllTextAsync(rutaArchivo);
                 if (string.IsNullOrWhiteSpace(contenido)) return;
 
-                // CORREGIDO: Ahora procesador devuelve string[] directamente
                 var tokens = procesador.ProcesarTextoCompleto(contenido);
                 if (tokens.Length == 0) return;
 
                 var documento = new Documento(++contadorDocumentos, contenido, rutaArchivo);
-                documento.CalcularFrecuenciasArray(tokens); // CORRECTO: Recibe string[]
+                documento.CalcularFrecuenciasArray(tokens); 
                 documentos.Agregar(documento);
 
                 ProcesarTerminosDelDocumento(documento, tokens);
@@ -142,7 +138,6 @@ namespace PruebaRider.Servicios
 
             Console.WriteLine($"🔥 Aplicando Ley de Zipf ({percentil}%)...");
 
-            // Convertir a lista para trabajar
             var listaTerminos = new ListaDobleEnlazada<Termino>();
             var iterador = indiceTerminos.ObtenerIterador();
             while (iterador.Siguiente())

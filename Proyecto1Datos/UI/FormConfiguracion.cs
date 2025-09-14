@@ -5,9 +5,6 @@ using System.Windows.Forms;
 
 namespace PruebaRider.UI
 {
-    /// <summary>
-    /// Formulario para configuraciones avanzadas del sistema
-    /// </summary>
     public partial class FormConfiguracion : Form
     {
         public string DirectorioDocumentos { get; private set; }

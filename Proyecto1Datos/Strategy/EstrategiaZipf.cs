@@ -128,12 +128,10 @@ namespace PruebaRider.Strategy
             {
                 throw new InvalidOperationException("No se ha establecido una estrategia");
             }
-
             if (percentil <= 0 || percentil >= 100)
             {
                 throw new ArgumentException("El percentil debe estar entre 1 y 99");
             }
-
             Console.WriteLine($"🎯 Aplicando {estrategia.NombreEstrategia} ({percentil}%)");
             Console.WriteLine($"📝 {estrategia.Descripcion}");
             

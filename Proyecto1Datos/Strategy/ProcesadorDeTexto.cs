@@ -4,12 +4,8 @@ using System.Text;
 
 namespace PruebaRider.Servicios
 {
-    /// <summary>
-    /// Procesador de texto, exlusivamente texto
-    /// </summary>
     public class ProcesadorDeTexto
     {
-        // STOPWORDS como array fijo - NO usar HashSet
         private static readonly string[] StopWords = {
             "el", "la", "los", "las", "un", "una", "uno", "unos", "unas",
             "de", "del", "da", "en", "a", "al", "ante", "bajo", "con", "contra", 

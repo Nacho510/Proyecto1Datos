@@ -1,8 +1,6 @@
 ﻿namespace PruebaRider.Estructura.ColeccionOrdenada
 {
-    /// <summary>
-    /// Iterador para VectorOrdenado - Patrón Iterator
-    /// </summary>
+    //Iterador para VectorOrdenado
     public class IteradorVectorOrdenado<T> where T : IComparable<T>
     {
         private readonly VectorOrdenado<T> vector;

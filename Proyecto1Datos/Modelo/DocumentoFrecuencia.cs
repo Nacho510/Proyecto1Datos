@@ -13,14 +13,6 @@
             TfIdf = tfIdf;
         }
 
-        /// <summary>
-        /// Actualizar valor TF-IDF cuando cambie el IDF del término
-        /// </summary>
-        public void ActualizarTfIdf(double nuevoIdf)
-        {
-            TfIdf = FrecuenciaTf * nuevoIdf;
-        }
-
         public override string ToString()
         {
             return $"Doc[{Documento.Id}] TF:{FrecuenciaTf} TF-IDF:{TfIdf:F3}";

@@ -6,9 +6,7 @@ using PruebaRider.Estructura.Nodo;
 
 namespace PruebaRider.Persistencia
 {
-    /// <summary>
-    /// Serializador binario para varios archivos
-    /// </summary>
+    //Serializador binario para varios archivos
     public class SerializadorBinario
     {
         private const int BUFFER_SIZE = 8192; 
@@ -29,16 +27,16 @@ namespace PruebaRider.Persistencia
                 writer.Write(VERSION_FORMATO);
                 writer.Write(DateTime.UtcNow.ToBinary());
                 
-                EscribirDocumentosOptimizado(writer, documentos);
+                EscribirDocumentos(writer, documentos);
                 
-                EscribirTerminosOptimizado(writer, indice);
+                EscribirTerminos(writer, indice);
                 
                 long posicionFinal = fs.Position;
                 writer.Write(posicionFinal); 
             }
         }
 
-        private void EscribirDocumentosOptimizado(BinaryWriter writer, ListaDobleEnlazada<Documento> documentos)
+        private void EscribirDocumentos(BinaryWriter writer, ListaDobleEnlazada<Documento> documentos)
         {
             writer.Write(documentos.Count);
 
@@ -48,26 +46,26 @@ namespace PruebaRider.Persistencia
                 var doc = iteradorDocs.Current;
                 
                 writer.Write(doc.Id);
-                EscribirCadenaOptimizada(writer, doc.Ruta);
-                EscribirCadenaOptimizada(writer, doc.Tokens ?? "");
+                EscribirCadena(writer, doc.Ruta);
+                EscribirCadena(writer, doc.Tokens ?? "");
                 
                 string textoParaGuardar = doc.TextoOriginal?.Length > 10000 
                     ? doc.TextoOriginal.Substring(0, 1000) + "[TRUNCADO]"
                     : doc.TextoOriginal ?? "";
-                EscribirCadenaOptimizada(writer, textoParaGuardar);
+                EscribirCadena(writer, textoParaGuardar);
 
                 writer.Write(doc.Frecuencias.Count);
                 var iteradorFrecs = new Iterador<TerminoFrecuencia>(doc.Frecuencias);
                 while (iteradorFrecs.Siguiente())
                 {
                     var tf = iteradorFrecs.Current;
-                    EscribirCadenaOptimizada(writer, tf.Token);
+                    EscribirCadena(writer, tf.Token);
                     writer.Write(tf.Frecuencia);
                 }
             }
         }
 
-        private void EscribirTerminosOptimizado(BinaryWriter writer, ListaDobleEnlazada<Termino> indice)
+        private void EscribirTerminos(BinaryWriter writer, ListaDobleEnlazada<Termino> indice)
         {
             writer.Write(indice.Count);
 
@@ -76,10 +74,9 @@ namespace PruebaRider.Persistencia
             {
                 var termino = iteradorTerminos.Current;
                 
-                EscribirCadenaOptimizada(writer, termino.Palabra);
+                EscribirCadena(writer, termino.Palabra);
                 writer.Write(termino.Idf);
 
-                // CORRECCIÓN CRÍTICA: Escribir correctamente DocumentoFrecuencia
                 writer.Write(termino.Documentos.Count);
                 var iteradorDocsTermino = new Iterador<DocumentoFrecuencia>(termino.Documentos);
                 while (iteradorDocsTermino.Siguiente())
@@ -111,9 +108,9 @@ namespace PruebaRider.Persistencia
                 
                 long timestamp = reader.ReadInt64(); // Timestamp (para futuras validaciones)
                 
-                CargarDocumentosOptimizado(reader, documentos);
+                CargarDocumentos(reader, documentos);
                 
-                CargarTerminosOptimizado(reader, documentos, indice);
+                CargarTerminos(reader, documentos, indice);
                 
                 if (fs.Position < fs.Length)
                 {
@@ -124,25 +121,24 @@ namespace PruebaRider.Persistencia
             return (indice, documentos);
         }
 
-        private void CargarDocumentosOptimizado(BinaryReader reader, ListaDobleEnlazada<Documento> documentos)
+        private void CargarDocumentos(BinaryReader reader, ListaDobleEnlazada<Documento> documentos)
         {
             int cantidadDocs = reader.ReadInt32();
             
             for (int i = 0; i < cantidadDocs; i++)
             {
                 int id = reader.ReadInt32();
-                string ruta = LeerCadenaOptimizada(reader);
-                string tokens = LeerCadenaOptimizada(reader);
-                string textoOriginal = LeerCadenaOptimizada(reader);
+                string ruta = LeerCadena(reader);
+                string tokens = LeerCadena(reader);
+                string textoOriginal = LeerCadena(reader);
                 
                 var documento = new Documento(id, textoOriginal, ruta);
                 documento.Tokens = tokens;
                 
-                // Leer frecuencias
                 int cantidadFrecs = reader.ReadInt32();
                 for (int j = 0; j < cantidadFrecs; j++)
                 {
-                    string token = LeerCadenaOptimizada(reader);
+                    string token = LeerCadena(reader);
                     int frecuencia = reader.ReadInt32();
                     documento.Frecuencias.Agregar(new TerminoFrecuencia(token, frecuencia));
                 }
@@ -151,13 +147,13 @@ namespace PruebaRider.Persistencia
             }
         }
 
-        private void CargarTerminosOptimizado(BinaryReader reader, ListaDobleEnlazada<Documento> documentos, ListaDobleEnlazada<Termino> indice)
+        private void CargarTerminos(BinaryReader reader, ListaDobleEnlazada<Documento> documentos, ListaDobleEnlazada<Termino> indice)
         {
             int cantidadTerminos = reader.ReadInt32();
             
             for (int i = 0; i < cantidadTerminos; i++)
             {
-                string palabra = LeerCadenaOptimizada(reader);
+                string palabra = LeerCadena(reader);
                 double idf = reader.ReadDouble();
                 
                 var termino = new Termino(palabra);
@@ -193,7 +189,7 @@ namespace PruebaRider.Persistencia
             return null;
         }
         
-        private void EscribirCadenaOptimizada(BinaryWriter writer, string texto)
+        private void EscribirCadena(BinaryWriter writer, string texto)
         {
             if (string.IsNullOrEmpty(texto))
             {
@@ -216,7 +212,7 @@ namespace PruebaRider.Persistencia
             writer.Write(bytes);
         }
         
-        private string LeerCadenaOptimizada(BinaryReader reader)
+        private string LeerCadena(BinaryReader reader)
         {
             int longitud = reader.ReadInt32();
             
@@ -225,7 +221,6 @@ namespace PruebaRider.Persistencia
                 
             if (longitud == -2)
             {
-                // Leer longitud real de datos comprimidos
                 int longitudComprimida = reader.ReadInt32();
                 byte[] bytesComprimidos = reader.ReadBytes(longitudComprimida);
                 byte[] bytesDescomprimidos = DescomprimirCadenaBasica(bytesComprimidos);
@@ -238,7 +233,6 @@ namespace PruebaRider.Persistencia
         
         private bool ContienePatronesRepetitivos(string texto)
         {
-            // Heurística simple: si tiene más de 30% de espacios, probablemente se pueda comprimir
             int espacios = 0;
             foreach (char c in texto)
             {
@@ -250,7 +244,6 @@ namespace PruebaRider.Persistencia
         
         private byte[] ComprimirCadenaBasica(byte[] datos)
         {
-            // Implementación simple de Run-Length Encoding para espacios
             var resultado = new List<byte>();
             byte espacioByte = (byte)' ';
             
@@ -264,9 +257,9 @@ namespace PruebaRider.Persistencia
                         contador++;
                     }
                     
-                    if (contador > 3) // Solo comprimir si vale la pena
+                    if (contador > 3) 
                     {
-                        resultado.Add(255); // Marcador de compresión
+                        resultado.Add(255);
                         resultado.Add((byte)contador);
                         i += contador - 1;
                     }
@@ -293,7 +286,7 @@ namespace PruebaRider.Persistencia
             
             for (int i = 0; i < datosComprimidos.Length; i++)
             {
-                if (datosComprimidos[i] == 255 && i + 1 < datosComprimidos.Length) // Marcador de compresión
+                if (datosComprimidos[i] == 255 && i + 1 < datosComprimidos.Length)
                 {
                     int repeticiones = datosComprimidos[i + 1];
                     for (int j = 0; j < repeticiones; j++)
@@ -311,22 +304,6 @@ namespace PruebaRider.Persistencia
             return resultado.ToArray();
         }
         
-        
-    }
-    
-    public class InfoArchivo
-    {
-        public bool Existe { get; set; }
-        public long TamañoBytes { get; set; }
-        public DateTime FechaModificacion { get; set; }
-        public DateTime FechaCreacion { get; set; }
-        public byte Version { get; set; }
-        public int NumeroDocumentos { get; set; }
-        public string Error { get; set; }
-
-        public string TamañoFormateado => TamañoBytes < 1024 * 1024 
-            ? $"{TamañoBytes / 1024.0:F1} KB" 
-            : $"{TamañoBytes / (1024.0 * 1024.0):F1} MB";
         
     }
 }

@@ -47,7 +47,7 @@
         
         public void OrdenarDescendente(Func<T, double> criterio)
         {
-            if (count < 2)
+            if (count < 1)
             {
                 estaOrdenada = true;
                 return;

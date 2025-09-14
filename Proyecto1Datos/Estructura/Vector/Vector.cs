@@ -1,8 +1,7 @@
 ﻿namespace PruebaRider.Estructura.Vector
 {
-    /// <summary>
-    /// Vector matemático para cálculos de similitud.
-    /// </summary>
+    // Vector matemático para cálculos de similitud.
+    
     public class Vector
     {
         private double[] valores;
@@ -23,26 +22,17 @@
             get
             {
                 if (index < 0 || index >= valores.Length)
-                    throw new IndexOutOfRangeException($"Índice {index} fuera de rango [0, {valores.Length - 1}]");
+                    throw new IndexOutOfRangeException();
                 return valores[index];
             }
             set
             {
                 if (index < 0 || index >= valores.Length)
-                    throw new IndexOutOfRangeException($"Índice {index} fuera de rango [0, {valores.Length - 1}]");
-
-                if (double.IsNaN(value) || double.IsInfinity(value))
-                {
+                    throw new IndexOutOfRangeException();
+                if (value < 0.0)
                     valores[index] = 0.0;
-                }
-                else if (value < 0.0)
-                {
-                    valores[index] = 0.0;
-                }
                 else
-                {
                     valores[index] = value;
-                }
             }
         }
         

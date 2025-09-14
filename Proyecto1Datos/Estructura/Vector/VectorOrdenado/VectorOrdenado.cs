@@ -1,8 +1,6 @@
 ﻿namespace PruebaRider.Estructura.ColeccionOrdenada
 {
-    /// <summary>
-    /// Vector genérico que mantiene sus elementos en orden. En este caso los terminos
-    /// </summary>
+    // Vector genérico que mantiene sus elementos en orden. En este caso los terminos
     public class VectorOrdenado<T> where T : IComparable<T>
     {
         private T[] elementos;

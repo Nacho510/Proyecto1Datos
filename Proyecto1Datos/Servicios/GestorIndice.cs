@@ -3,9 +3,7 @@ using PruebaRider.Strategy;
 
 namespace PruebaRider.Servicios
 {
-    /// <summary>
-    /// Gestor simplificado manteniendo Singleton (patrón requerido)
-    /// </summary>
+    /// Gestor manteniendo Singleton
     public sealed class GestorIndice
     {
         private static GestorIndice instancia = null;

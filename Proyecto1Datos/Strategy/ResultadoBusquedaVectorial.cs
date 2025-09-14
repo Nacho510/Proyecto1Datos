@@ -3,10 +3,9 @@ using PruebaRider.Modelo;
 
 namespace PruebaRider.Servicios
 {
-    /// <summary>
-    /// Almacena el resultado de una búsqueda vectorial
-    /// Incluye el documento, la similitud coseno y métodos para generar URL y vista
-    /// </summary>
+    // Almacena el resultado de una búsqueda vectorial
+    // Incluye el documento, la similitud coseno y métodos para generar URL y vista
+    
     public class ResultadoBusquedaVectorial
     {
         public Documento Documento { get; set; }
@@ -84,7 +83,6 @@ namespace PruebaRider.Servicios
 
                 string preview = string.Join(" ", lineasValidas);
                 
-                // Limitar a 150 caracteres
                 if (preview.Length > 150)
                     preview = preview.Substring(0, 150) + "...";
 

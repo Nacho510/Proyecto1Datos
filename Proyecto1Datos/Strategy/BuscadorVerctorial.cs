@@ -5,9 +5,7 @@ using PruebaRider.Modelo;
 
 namespace PruebaRider.Servicios
 {
-    /// <summary>
-    /// Se encarga de buscar documentos similares usando los vectores TF-IDF y la similitud del coseno.
-    /// </summary>
+    // Se encarga de buscar documentos similares usando los vectores TF-IDF y la similitud del coseno
     public class BuscadorVectorial
     {
         private readonly IndiceInvertido indice;
@@ -59,7 +57,6 @@ namespace PruebaRider.Servicios
         {
             var procesador = new ProcesadorDeTexto();
             
-            // CORREGIDO: Ahora devuelve string[] directamente
             var tokens = procesador.ProcesarTextoCompleto(consulta);
 
             if (tokens.Length == 0)
@@ -71,7 +68,6 @@ namespace PruebaRider.Servicios
             if (indiceTerminos.Count == 0)
                 return null;
 
-            // Usar TU Vector
             var vector = new Vector(indiceTerminos.Count);
             var iterador = indiceTerminos.ObtenerIterador();
             int posicion = 0;
@@ -90,10 +86,8 @@ namespace PruebaRider.Servicios
                 {
                     vector[posicion] = 0.0;
                 }
-
                 posicion++;
             }
-
             return vector;
         }
 
@@ -103,7 +97,6 @@ namespace PruebaRider.Servicios
             if (indiceTerminos.Count == 0)
                 return null;
 
-            // Usar TU Vector
             var vector = new Vector(indiceTerminos.Count);
             var iterador = indiceTerminos.ObtenerIterador();
             int posicion = 0;
@@ -124,7 +117,6 @@ namespace PruebaRider.Servicios
             var conteos = new TokenConteo[tokens.Length];
             int cantidadUnicos = 0;
 
-            // CORREGIDO: Usar for loop en lugar de iterador
             for (int i = 0; i < tokens.Length; i++)
             {
                 string token = tokens[i];
@@ -142,7 +134,6 @@ namespace PruebaRider.Servicios
                         break;
                     }
                 }
-
                 if (!encontrado)
                 {
                     conteos[cantidadUnicos] = new TokenConteo
